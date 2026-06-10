@@ -185,7 +185,7 @@
 
     <div class="row print-tools"><button id="showAll" class="secondary">Show all answers</button><button id="hideAll" class="secondary">Hide all answers</button></div>
     <main id="warmups" class="grid" aria-live="polite"></main>
-    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. Public feed loading uses multiple attempts and a recent local browser cache, but manual headline paste remains the most reliable option when networks or feed providers block requests. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card tells the teacher to choose another headline or click Generate warmups again instead of forcing a weak connection. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, biological death/survival models, or other harm-adjacent quantities when headlines involve violence, death, injury, legal trauma, or other sensitive events. Click Generate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
+    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. Public feed loading uses multiple attempts and a recent local browser cache, but manual headline paste remains the most reliable option when networks or feed providers block requests. A relevance loop tries alternate skills and alternate headlines before any card appears. If a formula or task does not have a defensible connection to the selected headline, the card tells the teacher to choose another headline or click Generate warmups again instead of forcing a weak connection. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, biological death/survival models, or other harm-adjacent quantities when headlines involve violence, death, injury, legal trauma, or other sensitive events. Click Generate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
   </div>
 
 <script>
@@ -260,6 +260,8 @@ function seededNums(seed){const h=hashString(seed); return {
 };}
 function pick(arr, seed){return arr[hashString(seed)%arr.length];}
 let generationCounter = 0;
+let generationSalt = String(Date.now()) + '|' + Math.random();
+let lastWarmupSignature = '';
 function themeFrom(headlines){
   const text=headlines.join(' ').toLowerCase();
   const map=[
@@ -620,15 +622,44 @@ function hasScienceHeadlineContext(subject, headline, skill, formula){
   }
   return false;
 }
-function hasHumanitiesHeadlineContext(subject, headline){
+function hasPersonalScandalOrCelebrityHook(headline){
   const t=(headline||'').toLowerCase();
-  if(subject==='english') return true;
-  if(subject==='civics' || subject==='government') return /election|vote|court|law|policy|congress|president|governor|mayor|city|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration/.test(t);
-  if(subject==='usHistory') return /u\.s\.|us |america|american|white house|congress|president|supreme court|doj|federal|state|civil rights|immigration|border|labor|economy|policy|rights|war|veteran/.test(t);
-  if(subject==='worldHistory') return /china|iran|taiwan|israel|gaza|russia|ukraine|europe|asia|africa|global|world|international|foreign|trade|migration|climate|war|conflict|empire|colonial|revolution|treaty|border/.test(t);
-  if(subject==='psychology') return /stress|behavior|decision|social|survey|mental|health|fear|risk|teen|youth|workplace|school|sleep|media|misinformation|public reaction|poll/.test(t) || isSensitiveHarmHeadline(headline);
-  if(subject==='health') return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention/.test(t) || isSensitiveHarmHeadline(headline);
-  return true;
+  return /epstein|infidelit|blackmail|affair|celebrity|billionaire|gates|musk|bezos|divorce|tabloid|gossip|sex scandal|personal life/.test(t);
+}
+function hasHistoricalProcessHook(headline){
+  const t=(headline||'').toLowerCase();
+  return /war|conflict|treaty|diplomacy|foreign policy|migration|immigration|border policy|colonial|empire|revolution|civil rights|voting rights|labor|strike|union|industrial|tariff|trade war|recession|depression|new deal|reconstruction|cold war|segregation|slavery|indigenous|supreme court ruling|constitutional amendment|federalism|rights movement|veteran|military|invasion|genocide|sanctions|refugee|democracy|authoritarian|election history|public memory|monument|archive|historical/.test(t);
+}
+function hasHumanitiesSkillFit(subject, headline, skill){
+  const t=(headline||'').toLowerCase();
+  const s=(skill||'').toLowerCase();
+  if(subject==='english') return true; // English can work with language, tone, summary, framing, and claims in almost any headline.
+
+  if(subject==='civics' || subject==='government'){
+    const institution=/election|vote|voter|court|law|lawsuit|policy|congress|president|governor|mayor|city council|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration|executive order|regulation|constitution|constitutional|police|ice|border patrol/.test(t);
+    if(!institution) return false;
+    if(/fact from opinion/.test(s)) return true;
+    if(/institutions|branches|powers|checks|federalism|constitutional|authority|policy|public decision/.test(s)) return /court|law|policy|congress|president|governor|mayor|city council|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration|executive order|regulation|constitution|constitutional|ice|border patrol/.test(t);
+    return institution;
+  }
+
+  if(subject==='usHistory'){
+    // A current US headline is not automatically a history warmup. It needs a historical process, public-policy continuity, rights debate, war, labor/economic change, migration, or institutional development hook.
+    if(hasPersonalScandalOrCelebrityHook(headline) && !hasHistoricalProcessHook(headline)) return false;
+    return /u\.s\.|us |america|american|white house|congress|president|supreme court|doj|federal|state|civil rights|immigration|border|labor|economy|policy|rights|war|veteran|election|voting|court ruling|constitutional|union|tariff|trade|tax|new deal|reconstruction|cold war/.test(t) && hasHistoricalProcessHook(headline);
+  }
+
+  if(subject==='worldHistory'){
+    if(hasPersonalScandalOrCelebrityHook(headline) && !hasHistoricalProcessHook(headline)) return false;
+    return /china|iran|taiwan|israel|gaza|russia|ukraine|europe|asia|africa|global|world|international|foreign|trade|migration|climate|war|conflict|empire|colonial|revolution|treaty|border|sanctions|refugee|nato|united nations|diplomacy/.test(t) && hasHistoricalProcessHook(headline);
+  }
+
+  if(subject==='psychology') return /stress|behavior|decision|social|survey|mental|health|fear|risk|teen|youth|workplace|school|sleep|media|misinformation|public reaction|poll|attention|memory|emotion|motivation|bias|belief|group/.test(t) || isSensitiveHarmHeadline(headline);
+  if(subject==='health') return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention|nutrition|sleep|exercise/.test(t) || isSensitiveHarmHeadline(headline);
+  return false;
+}
+function hasHumanitiesHeadlineContext(subject, headline, skill=''){
+  return hasHumanitiesSkillFit(subject, headline, skill);
 }
 function isActuallyRelevant(w){
   const subject=w.subject;
@@ -636,13 +667,14 @@ function isActuallyRelevant(w){
   if(!h) return false;
   if(hasSemanticSafetyConflict(w)) return false;
   if(isSensitiveHarmHeadline(h)){
-    return ['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject);
+    // Sensitive stories are never allowed through for math or science. For humanities, they still need a real disciplinary lens; history is not automatically relevant to an isolated crime/scandal headline.
+    return ['english','civics','psychology','government','health','worldHistory','usHistory'].includes(subject) && hasHumanitiesHeadlineContext(subject, h, w.skill);
   }
   if(!formulaFitsHeadline(w)) return false;
   if(['algebra1','algebra2'].includes(subject)) return mathSkillFitsHeadline(subject, h, w.skill);
   if(subject==='geometry') return hasGeometryHeadlineContext(h, w.skill);
   if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return hasScienceHeadlineContext(subject, h, w.skill, w.formula);
-  if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject)) return hasHumanitiesHeadlineContext(subject, h);
+  if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject)) return hasHumanitiesHeadlineContext(subject, h, w.skill);
   return true;
 }
 function rotatedHeadlines(headlines, seed){
@@ -695,14 +727,29 @@ function subjectsForMode(){
   const mode=document.getElementById('subjectMode').value;
   return SUBJECT_GROUPS[mode] || [mode];
 }
+function warmupSignature(warmups){
+  return warmups.map(w=>[w.subject,w.headline,w.skill,(w.problem||'').replace(/<[^>]*>/g,'').slice(0,120)].join('::')).join('||');
+}
 function makeWarmups(headlines){
   const date=document.getElementById('dateSeed').value || new Date().toISOString().slice(0,10);
   const mode=document.getElementById('subjectMode').value;
-  const seed=headlines.join('|') + date + mode + '|regen:' + generationCounter;
   const theme=themeFrom(headlines);
-  return subjectsForMode().map((subject, index)=>{
-    return generateRelevantWarmup(subject, headlines, seed+'|subjectIndex:'+index, theme);
-  });
+  const subjects=subjectsForMode();
+
+  // Try several seed paths so repeated clicks do not keep returning the same first valid warmup.
+  // This matters because teachers need a practical way to skip a weak or inappropriate prompt.
+  let chosen=null;
+  let chosenSig='';
+  for(let cycle=0; cycle<32; cycle++){
+    const seed=headlines.join('|') + date + mode + '|regen:' + generationCounter + '|salt:' + generationSalt + '|cycle:' + cycle;
+    const candidate=subjects.map((subject, index)=>generateRelevantWarmup(subject, headlines, seed+'|subjectIndex:'+index, theme));
+    const sig=warmupSignature(candidate);
+    chosen=candidate;
+    chosenSig=sig;
+    if(sig !== lastWarmupSignature) break;
+  }
+  lastWarmupSignature=chosenSig;
+  return chosen;
 }
 
 function renderHeadlines(headlines){
@@ -871,6 +918,7 @@ async function fetchFeeds(){
     saveHeadlineCache(unique, mode);
     document.getElementById('manualHeadlines').value=unique.join('\n');
     generationCounter++;
+    generationSalt = String(Date.now()) + '|' + Math.random();
     renderWarmups(unique);
     status.textContent=`Loaded ${unique.length} headlines from ${successCount} source attempt${successCount===1?'':'s'}. Warmups generated. Click Generate warmups again for a different version.`;
     return;
@@ -879,6 +927,7 @@ async function fetchFeeds(){
   if(cached){
     document.getElementById('manualHeadlines').value=cached.headlines.join('\n');
     generationCounter++;
+    generationSalt = String(Date.now()) + '|' + Math.random();
     renderWarmups(cached.headlines);
     status.textContent=`Live feed access failed, so the app used cached headlines from about ${Math.round(cached.ageHours)} hour${Math.round(cached.ageHours)===1?'':'s'} ago. Paste fresh headlines manually if needed.`;
   } else {
@@ -890,16 +939,17 @@ function init(){
   document.getElementById('fetchFeeds').addEventListener('click', fetchFeeds);
   document.getElementById('generate').addEventListener('click', ()=>{
     const h=readManual();
-    if(h.length){generationCounter++; renderWarmups(h); document.getElementById('status').textContent='Warmups generated from pasted headlines. Click again for a different version.';}
+    if(h.length){generationCounter++; generationSalt = String(Date.now()) + '|' + Math.random(); renderWarmups(h); document.getElementById('status').textContent='Warmups generated from pasted headlines. Click again for a different version.';}
     else document.getElementById('status').textContent='Paste headlines first, fetch feeds, or use sample headlines.';
   });
   document.getElementById('subjectMode').addEventListener('change', ()=>{
     const h=readManual();
     generationCounter++;
+    generationSalt = String(Date.now()) + '|' + Math.random();
     renderWarmups(h.length?h:SAMPLE_HEADLINES);
     document.getElementById('status').textContent='Warmup type changed.';
   });
-  document.getElementById('sample').addEventListener('click', ()=>{document.getElementById('manualHeadlines').value=SAMPLE_HEADLINES.join('\n'); generationCounter++; renderWarmups(SAMPLE_HEADLINES); document.getElementById('status').textContent='Sample warmups generated. Click again for a different version.';});
+  document.getElementById('sample').addEventListener('click', ()=>{document.getElementById('manualHeadlines').value=SAMPLE_HEADLINES.join('\n'); generationCounter++; generationSalt = String(Date.now()) + '|' + Math.random(); renderWarmups(SAMPLE_HEADLINES); document.getElementById('status').textContent='Sample warmups generated. Click again for a different version.';});
   document.getElementById('print').addEventListener('click', ()=>window.print());
   document.getElementById('showAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='block'));
   document.getElementById('hideAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='none'));
