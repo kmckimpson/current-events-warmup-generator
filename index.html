@@ -100,6 +100,7 @@
     .problem{padding:14px;border-radius:16px;background:#fbfcfe;border:1px solid var(--line);font-size:16px}
     .formula{padding:10px 12px;border-radius:14px;background:#fffaf0;border:1px solid #edd8a2;font-weight:800;font-size:15px}
     .safety-note{padding:10px 12px;border-radius:14px;background:#fff4f4;border:1px solid #f0c7c7;color:#743434;font-weight:800;font-size:14px}
+    .relevance-check{padding:10px 12px;border-radius:14px;background:#eef9f5;border:1px solid #bfe2d4;color:#22483c;font-weight:750;font-size:14px}
     .answer{display:none;margin-top:10px;padding:12px;border-radius:14px;background:#f3f7ea;border:1px solid #d9e9be;color:#26350f}
     .data-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;background:white;border-radius:10px;overflow:hidden}
     .data-table th,.data-table td{border:1px solid var(--line);padding:6px;text-align:center}
@@ -130,7 +131,7 @@
         <textarea id="manualHeadlines" placeholder="Paste 3–8 headlines here, one per line. Or use the feed button."></textarea>
         <div class="row">
           <button id="fetchFeeds" class="teal">Fetch public RSS feeds</button>
-          <button id="generate">Generate warmups</button>
+          <button id="generate">Generate / regenerate warmups</button>
           <button id="sample" class="secondary">Use sample headlines</button>
           <button id="print" class="gold">Print</button>
         </div>
@@ -184,7 +185,7 @@
 
     <div class="row print-tools"><button id="showAll" class="secondary">Show all answers</button><button id="hideAll" class="secondary">Hide all answers</button></div>
     <main id="warmups" class="grid" aria-live="polite"></main>
-    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, or other harm-based quantities when headlines involve violence, death, injury, or trauma. Edit any number, claim, or framing before printing when precision matters.</p>
+    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card is redirected to a safer relevance/evidence task instead. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, or other harm-based quantities when headlines involve violence, death, injury, or trauma. Click Generate / regenerate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
   </div>
 
 <script>
@@ -258,6 +259,7 @@ function seededNums(seed){const h=hashString(seed); return {
   p: 30 + (Math.floor(h/127)%45), q: 4 + (Math.floor(h/149)%12)
 };}
 function pick(arr, seed){return arr[hashString(seed)%arr.length];}
+let generationCounter = 0;
 function themeFrom(headlines){
   const text=headlines.join(' ').toLowerCase();
   const map=[
@@ -298,7 +300,12 @@ function signedChange(n){return n.d % 2 === 0 ? n.a+n.m : -(n.a+n.m);}
 
 function isSensitiveHarmHeadline(headline){
   const t=(headline||'').toLowerCase();
-  return /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killed|dead|death toll|fatal|wounded|injured|victim|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
+  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killed|dead|death toll|fatal|wounded|injured|victim|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
+  const militaryStrike = /airstrike|drone strike|military strike|exchange strikes|rocket system|rocket fire|firing in|border attack|troops?|combat/.test(t);
+  return harmWords || militaryStrike;
+}
+function describeWarmupAnchor(headline, cat){
+  return `This warmup uses the headline “${headline}.” It passed through a relevance screen as a ${categoryNoun(cat)} before the prompt was shown.`;
 }
 function safetyLabel(headline){
   return isSensitiveHarmHeadline(headline) ? 'Moral filter active: tragedy-sensitive headline' : '';
@@ -351,7 +358,7 @@ function makeMathWarmup(subject, headlines, seed, n, theme, eventDesc){
   const cat=headlineCategory(h);
   const noun=categoryNoun(cat);
   const idx=hashString(seed+subject+h)%3;
-  const base={subject, course:SUBJECTS[subject].label, headline:h, eventDesc};
+  const base={subject, course:SUBJECTS[subject].label, headline:h, eventDesc:describeWarmupAnchor(h, cat)};
   if(isSensitiveHarmHeadline(h)) return makeSensitiveMathWarmup(subject, h, base);
 
   if(subject==='algebra1'){
@@ -384,7 +391,7 @@ function makeScienceWarmup(subject, headlines, seed, n, theme, eventDesc){
   const h=selectHeadline(headlines, seed+subject);
   const cat=headlineCategory(h);
   const idx=hashString(seed+subject+h)%3;
-  const base={subject, course:SUBJECTS[subject].label, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc};
+  const base={subject, course:SUBJECTS[subject].label, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc:describeWarmupAnchor(h, cat)};
   if(isSensitiveHarmHeadline(h)) return makeSensitiveScienceWarmup(subject, h, base);
 
   if(subject==='lifeScience'){
@@ -424,7 +431,7 @@ function makeHumanitiesWarmup(subject, headlines, seed, n, theme, eventDesc){
   const cat=headlineCategory(h);
   const idx=hashString(seed+subject+h)%3;
   const subjectLabel=SUBJECTS[subject].label;
-  const base={subject, course:subjectLabel, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc};
+  const base={subject, course:subjectLabel, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc:describeWarmupAnchor(h, cat)};
   if(isSensitiveHarmHeadline(h)) return makeSensitiveHumanitiesWarmup(subject, h, base);
   const sourceA=`Officials say the story shows a need for quick action because the effects are already visible.`;
   const sourceB=`Community members say the story is more complicated and that long-term causes should be studied before choosing a response.`;
@@ -488,6 +495,57 @@ function makeHumanitiesWarmup(subject, headlines, seed, n, theme, eventDesc){
   return {...base, relevance:`This warmup connects current events to disciplinary thinking.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one discipline-specific question this story raises, then answer it using evidence from the headline.`, answer:`A strong answer uses the subject lens and stays grounded in the headline.`};
 }
 
+
+function formulaNeedsDirectScienceFit(w){
+  const f=(w.formula||'').toLowerCase();
+  if(!f) return false;
+  return /density|speed|force|work|momentum|potential energy|f = ma|mgh|velocity/.test(f);
+}
+function formulaFitsHeadline(w){
+  const cat=headlineCategory(w.headline||'');
+  const t=(w.headline||'').toLowerCase();
+  const f=(w.formula||'').toLowerCase();
+  if(!f) return true;
+  if(w.safetyNote) return true;
+  if(['lifeScience','biology'].includes(w.subject)){
+    return ['health','weather','technology'].includes(cat) || /species|ecosystem|habitat|disease|health|vaccine|medical|climate|wildfire|research|biology|water|food|environment|animal|plant/.test(t);
+  }
+  if(['physicalScience','physics'].includes(w.subject)){
+    if(/density/.test(f)) return ['weather','technology','infrastructure','health'].includes(cat) && /material|water|fuel|battery|building|bridge|ship|storm|weather|science|space|energy|vehicle|flight|airport|road|transit|oil|gasoline/.test(t);
+    if(formulaNeedsDirectScienceFit(w)) return ['weather','technology','infrastructure','health'].includes(cat) || /space|rocket|satellite|vehicle|flight|storm|wind|energy|bridge|transit|traffic|ship|machine|engine|power|electric|battery|gasoline|fuel/.test(t);
+  }
+  return true;
+}
+function makeRelevanceRedirect(w){
+  const cat=headlineCategory(w.headline||'');
+  const base={...w, formula:'', safetyNote:w.safetyNote||'', relevanceCheck:'Redirected by relevance check: the first generated task used a formula or scenario that was not clearly connected to this headline.'};
+  if(['physicalScience','physics'].includes(w.subject)){
+    return {...base,
+      skill:'judge whether a physical-science model fits a headline',
+      relevance:'Physical science is useful when a headline clearly involves matter, energy, motion, forces, waves, or measurement. When that connection is weak, the better scientific skill is deciding what evidence or context would be needed before modeling.',
+      problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app rejected the first generated formula problem because the science connection was too weak or too risky.<br><br>1. Name one physical-science concept that <strong>could</strong> be relevant only if the article provided more information.<br>2. Name one measurement or piece of evidence you would need before using a formula.<br>3. Explain why making up a calculation would weaken the connection to the news event.`,
+      answer:'A strong answer names a possible concept such as energy, materials, speed, density, waves, or forces; asks for a real measurement such as distance, time, mass, volume, temperature, or energy use; and explains that invented numbers can make the warmup feel fake or misleading.'};
+  }
+  if(['lifeScience','biology'].includes(w.subject)){
+    return {...base,
+      skill:'judge whether a biology model fits a headline',
+      relevance:'Biology models are strongest when the headline actually involves living systems, health evidence, ecosystems, organisms, inheritance, or environmental change. When the connection is weak, students can practice deciding what biological evidence would be needed.',
+      problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app rejected the first generated biology problem because the connection to living systems was not strong enough.<br><br>1. What biology concept might connect to this story only with more evidence?<br>2. What data would you need before turning it into a biology warmup?<br>3. Write one sentence explaining why relevance matters in science tasks.`,
+      answer:'A strong answer asks for actual biological evidence, such as organism data, health outcomes, ecosystem effects, experimental results, or population data, and explains that relevance keeps science from becoming random arithmetic.'};
+  }
+  return {...base,
+    skill:'check task relevance before solving',
+    relevance:'A useful warmup should make the skill feel connected to the headline, not pasted onto it. This card asks students to evaluate whether the task and event actually fit.',
+    problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app flagged the first generated task as a weak match. Write:<br>1. The subject skill that could fit this headline best.<br>2. One detail from the headline that supports that choice.<br>3. One task type that would feel forced or inappropriate here.`,
+    answer:'A strong answer names a skill supported by the headline, cites a specific headline detail, and rejects a task type that would feel arbitrary, insensitive, or disconnected.'};
+}
+function applyRelevanceCheck(w){
+  if(w.safetyNote){
+    return {...w, relevanceCheck:'Passed relevance check: sensitive headline detected, so harm-based calculations were blocked and the task was redirected.'};
+  }
+  if(!formulaFitsHeadline(w)) return makeRelevanceRedirect(w);
+  return {...w, relevanceCheck:'Passed relevance check: the selected skill has a defensible connection to the headline.'};
+}
 function subjectsForMode(){
   const mode=document.getElementById('subjectMode').value;
   return SUBJECT_GROUPS[mode] || [mode];
@@ -495,15 +553,17 @@ function subjectsForMode(){
 function makeWarmups(headlines){
   const date=document.getElementById('dateSeed').value || new Date().toISOString().slice(0,10);
   const mode=document.getElementById('subjectMode').value;
-  const seed=headlines.join('|') + date + mode;
+  const seed=headlines.join('|') + date + mode + '|regen:' + generationCounter;
   const theme=themeFrom(headlines);
   const eventDesc=describeEvent(headlines, theme);
   return subjectsForMode().map((subject, index)=>{
     const localSeed=seed+subject+index;
     const n=seededNums(localSeed);
-    if(['algebra1','geometry','algebra2'].includes(subject)) return makeMathWarmup(subject, headlines, localSeed, n, theme, eventDesc);
-    if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return makeScienceWarmup(subject, headlines, localSeed, n, theme, eventDesc);
-    return makeHumanitiesWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    let w;
+    if(['algebra1','geometry','algebra2'].includes(subject)) w = makeMathWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    else if(['lifeScience','biology','physicalScience','physics'].includes(subject)) w = makeScienceWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    else w = makeHumanitiesWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    return applyRelevanceCheck(w);
   });
 }
 
@@ -523,6 +583,7 @@ function renderWarmups(headlines){
         <span class="tag">${escapeHTML(w.skill)}</span>
         <div class="text-block"><div class="mini-title">News anchor</div>${escapeHTML(w.eventDesc)}</div>
         <div class="text-block"><div class="mini-title">Skill relevance</div>${escapeHTML(w.relevance)}</div>
+        ${w.relevanceCheck ? `<div class="relevance-check"><div class="mini-title">Relevance check</div>${escapeHTML(w.relevanceCheck)}</div>` : ''}
         ${w.safetyNote ? `<div class="safety-note"><div class="mini-title">Moral filter</div>${escapeHTML(w.safetyNote)}</div>` : ''}
         ${w.formula ? `<div class="formula"><div class="mini-title">Formula</div>${w.formula}</div>` : ''}
         <div class="problem"><div class="mini-title">Warmup problem</div>${w.problem}</div>
@@ -555,8 +616,9 @@ async function fetchFeeds(){
   const unique=[...new Set(all)].slice(0,8);
   if(unique.length){
     document.getElementById('manualHeadlines').value=unique.join('\n');
+    generationCounter++;
     renderWarmups(unique);
-    status.textContent=`Loaded ${unique.length} headlines. Warmups generated.`;
+    status.textContent=`Loaded ${unique.length} headlines. Warmups generated. Click generate again for a different version.`;
   } else {
     status.textContent='Feed access failed. Paste headlines manually or use sample headlines.';
   }
@@ -566,15 +628,16 @@ function init(){
   document.getElementById('fetchFeeds').addEventListener('click', fetchFeeds);
   document.getElementById('generate').addEventListener('click', ()=>{
     const h=readManual();
-    if(h.length){renderWarmups(h); document.getElementById('status').textContent='Warmups generated from pasted headlines.';}
+    if(h.length){generationCounter++; renderWarmups(h); document.getElementById('status').textContent='Warmups generated from pasted headlines. Click again for a different version.';}
     else document.getElementById('status').textContent='Paste headlines first, fetch feeds, or use sample headlines.';
   });
   document.getElementById('subjectMode').addEventListener('change', ()=>{
     const h=readManual();
+    generationCounter++;
     renderWarmups(h.length?h:SAMPLE_HEADLINES);
     document.getElementById('status').textContent='Warmup type changed.';
   });
-  document.getElementById('sample').addEventListener('click', ()=>{document.getElementById('manualHeadlines').value=SAMPLE_HEADLINES.join('\n'); renderWarmups(SAMPLE_HEADLINES); document.getElementById('status').textContent='Sample warmups generated.';});
+  document.getElementById('sample').addEventListener('click', ()=>{document.getElementById('manualHeadlines').value=SAMPLE_HEADLINES.join('\n'); generationCounter++; renderWarmups(SAMPLE_HEADLINES); document.getElementById('status').textContent='Sample warmups generated. Click again for a different version.';});
   document.getElementById('print').addEventListener('click', ()=>window.print());
   document.getElementById('showAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='block'));
   document.getElementById('hideAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='none'));
