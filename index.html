@@ -287,7 +287,7 @@ function headlineCategory(headline){
   const t=(headline||'').toLowerCase();
   if(/storm|weather|hurricane|heat|rain|flood|snow|climate|wildfire|coastal/.test(t)) return 'weather';
   if(/market|economy|prices|inflation|jobs|forecast|cost|budget|interest|tariff|trade/.test(t)) return 'economy';
-  if(/tech|ai|data|cyber|software|chip|robot|app|internet|phone|space/.test(t)) return 'technology';
+  if(/tech|ai|data|cyber|software|chip|robot|app|internet|phone|spacecraft|rocket launch|satellite|nasa|engineering/.test(t)) return 'technology';
   if(/health|hospital|illness|disease|vaccine|medical|respiratory|science|biology|species|research/.test(t)) return 'health';
   if(/travel|flight|airport|road|traffic|transit|rail|bridge|ship/.test(t)) return 'infrastructure';
   if(/election|court|law|policy|congress|president|governor|mayor|city|vote/.test(t)) return 'civic';
@@ -350,15 +350,51 @@ function makeSensitiveMathWarmup(subject, h, base){
   return {...common, skill:'interpret variables in a model ethically', relevance:'Algebra 2 models can be powerful, so students need to understand that model design includes ethical choices about what not to model.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Suppose someone proposes a model using this headline. Write two variables that would be ethical to model for classroom learning and one variable that should be avoided. Explain your choices.`, answer:'Ethical variables might involve number of verified sources, time between official updates, resources available, or response steps. Variables that quantify casualties, weapon performance, or attack mechanics should be avoided.'};
 }
 function makeSensitiveScienceWarmup(subject, h, base){
-  return {
+  const idx = hashString((h||'') + '|' + (base.skill||'') + '|safeScience|' + generationCounter + '|' + generationSalt) % 6;
+  const common = {
     ...base,
     headline:h,
-    skill:'analyze science, technology, and ethics',
-    safetyNote:'This headline may involve military technology, violence, death, injury, or trauma. The warmup avoids formulas about weapons, impacts, injuries, attack mechanics, or rates of harm.',
-    relevance:'Science is relevant here through evidence, technology, systems, and ethics. The task avoids calculating harm and instead asks how scientific knowledge should be used responsibly.',
-    problem:`Headline: <strong>${esc(h)}</strong><br><br>This story is not appropriate for a calculation about motion, force, energy, injury, or weapons. Instead, answer these questions:<br>1. What science or engineering concept may be involved in the technology named by the headline?<br>2. What ethical question should guide how that science is used?<br>3. What evidence would a responsible reader need before making a claim about the technology?`,
-    answer:'A strong answer avoids weapon or injury calculations, asks for verified evidence, prefers official or expert sources, and frames science around safety, systems, or responsible interpretation.'
+    safetyNote:'This headline may involve military technology, violence, death, injury, or trauma. The warmup avoids formulas about weapons, impacts, injuries, attack mechanics, or rates of harm.'
   };
+  const templates = [
+    ()=>({...common,
+      skill:'analyze science, technology, and ethics',
+      relevance:'Science is relevant here through evidence, technology, systems, and ethics. The task avoids calculating harm and instead asks how scientific knowledge should be used responsibly.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>This story is not appropriate for a calculation about motion, force, energy, injury, or weapons. Instead, answer these questions:<br>1. What science or engineering concept may be involved in the technology named by the headline?<br>2. What ethical question should guide how that science is used?<br>3. What evidence would a responsible reader need before making a claim about the technology?`,
+      answer:'A strong answer names a relevant concept, asks an ethical question about safety or harm, and asks for reliable evidence such as verified technical details, context, and source credibility.'
+    }),
+    ()=>({...common,
+      skill:'distinguish scientific description from responsible use',
+      relevance:'A technology can be explained scientifically without turning harm into a calculation or treating dangerous use as a neutral exercise.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one scientific idea that could describe the technology in this headline. Then explain why a class should discuss its responsible use instead of calculating its harmful effects.`,
+      answer:'A strong answer names a science idea such as propulsion, guidance systems, materials, sensors, energy transfer, or communication, then explains why ethical limits matter.'
+    }),
+    ()=>({...common,
+      skill:'evaluate evidence for a technology claim',
+      relevance:'Science reporting often names technologies without giving enough evidence to judge how they work, how reliable they are, or what claims are justified.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>List three pieces of evidence a responsible reader would need before making a scientific claim about the technology in this headline. Which evidence would be most important, and why?`,
+      answer:'Strong evidence could include verified specifications, source credibility, independent confirmation, context, limitations, and whether the claim separates capability from actual use.'
+    }),
+    ()=>({...common,
+      skill:'identify system inputs, outputs, and limits',
+      relevance:'Engineering systems have inputs, outputs, constraints, and failure points. This can be discussed without calculating harm.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose a technology named or implied by the headline. Identify one input, one output, and one limitation or safety constraint for that system.`,
+      answer:'A strong answer identifies a real system feature, such as energy, information, materials, motion, guidance, communication, accuracy, safety limits, or environmental conditions.'
+    }),
+    ()=>({...common,
+      skill:'connect engineering design to constraints',
+      relevance:'Engineering design is shaped by constraints such as safety, reliability, cost, materials, energy, environment, and public consequences.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>Name two engineering constraints that would matter for the technology in this story. Explain why each constraint affects responsible design.`,
+      answer:'Good constraints include safety, reliability, testing, cost, materials, energy source, environmental impact, accountability, and risk to people.'
+    }),
+    ()=>({...common,
+      skill:'separate model, measurement, and claim',
+      relevance:'Scientific reasoning asks whether a claim is based on a model, a measurement, or an assumption.',
+      problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one possible model, one possible measurement, and one possible claim connected to the technology in this headline. Which one would need the strongest evidence?`,
+      answer:'A strong answer separates a model from measured data and from a public claim, then explains why claims about performance or consequences need strong evidence.'
+    })
+  ];
+  return templates[idx]();
 }
 function makeSensitiveHumanitiesWarmup(subject, h, base){
   const common = {
@@ -555,6 +591,7 @@ function formulaNeedsDirectScienceFit(w){
   return /density|speed|force|work|momentum|potential energy|f = ma|mgh|velocity/.test(f);
 }
 function formulaFitsHeadline(w){
+  if(isScienceBrandFinanceHeadline(w.headline||'')) return false;
   const cat=headlineCategory(w.headline||'');
   const t=(w.headline||'').toLowerCase();
   const f=(w.formula||'').toLowerCase();
@@ -564,9 +601,9 @@ function formulaFitsHeadline(w){
     return ['health','weather','technology'].includes(cat) || /species|ecosystem|habitat|disease|health|vaccine|medical|climate|wildfire|research|biology|water|food|environment|animal|plant/.test(t);
   }
   if(['physicalScience','physics'].includes(w.subject)){
-    if(/density/.test(f)) return ['weather','technology','infrastructure','health'].includes(cat) && /material|water|fuel|battery|building|bridge|ship|storm|weather|science|space|energy|vehicle|flight|airport|road|transit|oil|gasoline/.test(t);
+    if(/density/.test(f)) return ['weather','technology','infrastructure','health'].includes(cat) && /material|water|fuel|battery|building|bridge|ship|storm|weather|science|energy|vehicle|flight|airport|road|transit|oil|gasoline|alloy|metal|plastic|composite/.test(t) && !/ipo|millionaires|stock|shares|valuation/.test(t);
     if(/circuit|voltage|battery/.test(f)) return /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|signal|radio|wave|communication|internet|phone|satellite|radar|utility|blackout|outage/.test(t);
-    if(formulaNeedsDirectScienceFit(w)) return ['weather','technology','infrastructure','health'].includes(cat) || /space|rocket|satellite|vehicle|flight|storm|wind|energy|bridge|transit|traffic|ship|machine|engine|power|electric|battery|gasoline|fuel/.test(t);
+    if(formulaNeedsDirectScienceFit(w)) return ['weather','technology','infrastructure','health'].includes(cat) || /spacecraft|rocket launch|satellite|vehicle|flight|pilot|aircraft|jet|storm|wind|energy|bridge|transit|traffic|ship|machine|engine|power|electric|battery|gasoline|fuel/.test(t);
   }
   return true;
 }
@@ -647,9 +684,23 @@ function hasGeometryHeadlineContext(headline, skill){
   if(/proportion|scale/.test(s)) return /map|scale|model|image|graphic|chart|poll|survey|budget|funding|spending|population|distance|area|infrastructure|construction|storm|weather|satellite|space/.test(t);
   return false;
 }
+function isScienceBrandFinanceHeadline(headline){
+  const t=(headline||'').toLowerCase();
+  const scienceBrand=/spacex|tesla|boeing|nasa|blue origin|openai|google|apple|microsoft|nvidia|meta|amazon/.test(t);
+  const financeOnly=/ipo|stock|stocks|shares|valuation|millionaires|billionaires|market cap|earnings|profit|revenue|investors?|wall street/.test(t);
+  const actualScience=/launch|rocket launch|mission|orbit|satellite|spacecraft|engine|test flight|propulsion|battery|vehicle|software|chip|ai model|data center|grid|robot|science|research|experiment|engineering|manufacturing|materials?/.test(t);
+  return scienceBrand && financeOnly && !actualScience;
+}
+function hasFlightMotionHook(headline){
+  return /pilot|fighter pilot|fighter jet|jet|aircraft|airplane|plane|flight|flying|top gun|aviation|takeoff|landing|altitude|airspeed|velocity|acceleration/.test((headline||'').toLowerCase());
+}
 function hasScienceHeadlineContext(subject, headline, skill, formula){
   const t=(headline||'').toLowerCase();
   const s=((skill||'')+' '+(formula||'')).toLowerCase();
+
+  if(isScienceBrandFinanceHeadline(headline)){
+    return false;
+  }
 
   if(subject==='lifeScience' || subject==='biology'){
     if(/population|birth|death|survival|trophic|energy transfer|trait|genetics|probability|evidence|study|cells|organ systems|homeostasis|disease transmission|biotechnology|structure and function|ecosystem|habitat|carrying capacity|biotic|abiotic|inherited|learned/.test(s)){
@@ -659,13 +710,11 @@ function hasScienceHeadlineContext(subject, headline, skill, formula){
   }
 
   if(subject==='physicalScience'){
-    // Physical science relevance must be skill-specific. A fuel headline can support energy,
-    // heat, material, or chemical-change prompts, but it should not pass a circuits task.
     if(/calculate speed|speed = distance|force and motion|force = mass|motion/.test(s)){
-      return /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|space|rocket|satellite|motion|speed|travel|transport/.test(t);
+      return hasFlightMotionHook(headline) || /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|spacecraft|rocket launch|satellite|motion|speed|travel|transport/.test(t);
     }
     if(/density|materials?|properties|material/.test(s)){
-      return /material|water|fuel|oil|gasoline|battery|building|bridge|ship|storm|weather|science|space|energy|vehicle|construction|infrastructure|chemical|substance/.test(t);
+      return /material|water|fuel|oil|gasoline|battery|building|bridge|ship|storm|weather|science|energy|vehicle|construction|infrastructure|chemical|substance|alloy|metal|plastic|composite/.test(t) && !/ipo|millionaires|stock|shares|valuation/.test(t);
     }
     if(/energy transfer|heat transfer|temperature|heat|fuel|gasoline|oil|power|energy/.test(s)){
       return /energy|fuel|gasoline|oil|power|electricity|heat|temperature|weather|climate|battery|engine|combustion|fire|thermal|utility|grid|prices?/.test(t);
@@ -677,32 +726,31 @@ function hasScienceHeadlineContext(subject, headline, skill, formula){
       return /chemical|substance|material|water|ice|gas|gasoline|oil|pollution|air|heat|temperature|fuel|reaction|manufacturing|industrial/.test(t);
     }
     if(/ethics|engineering/.test(s)){
-      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|chemical|nuclear|infrastructure/.test(t);
+      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|chemical|nuclear|infrastructure|spacex|nasa|spacecraft/.test(t);
     }
-    return /space|rocket|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
+    return /spacecraft|rocket launch|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
   }
 
   if(subject==='physics'){
-    // Physics also needs skill-specific relevance so calculations do not attach to weakly related headlines.
     if(/motion equation|speed|velocity/.test(s)){
-      return /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|space|rocket|satellite|motion|speed|travel|transport/.test(t);
+      return hasFlightMotionHook(headline) || /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|spacecraft|rocket launch|satellite|motion|speed|travel|transport/.test(t);
     }
     if(/force|acceleration|fields/.test(s)){
-      return /force|acceleration|gravity|magnetic|electric|field|vehicle|traffic|flight|space|rocket|satellite|storm|wind|bridge|infrastructure/.test(t);
+      return hasFlightMotionHook(headline) || /force|acceleration|gravity|magnetic|electric|field|vehicle|traffic|flight|spacecraft|rocket launch|satellite|storm|wind|bridge|infrastructure/.test(t);
     }
     if(/energy|power|conservation/.test(s)){
-      return /energy|power|electricity|battery|fuel|gasoline|oil|grid|utility|heat|engine|climate|weather|space|rocket|satellite/.test(t);
+      return /energy|power|electricity|battery|fuel|gasoline|oil|grid|utility|heat|engine|climate|weather|spacecraft|rocket launch|satellite/.test(t);
     }
     if(/momentum/.test(s)){
-      return /vehicle|traffic|collision|transport|sports|space|rocket|satellite|motion|speed|flight|ship|rail/.test(t) && !isSensitiveHarmHeadline(headline);
+      return (hasFlightMotionHook(headline) || /vehicle|traffic|collision|transport|sports|spacecraft|rocket launch|satellite|motion|speed|flight|ship|rail/.test(t)) && !isSensitiveHarmHeadline(headline);
     }
     if(/waves|electricity|wave speed/.test(s)){
       return /wave|sound|light|radio|signal|communication|internet|phone|satellite|radar|electric|electricity|battery|grid|power|electronics|semiconductor/.test(t);
     }
     if(/ethics|responsible use|technology/.test(s)){
-      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|nuclear|infrastructure/.test(t);
+      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|nuclear|infrastructure|spacecraft|spacex|nasa/.test(t);
     }
-    return /space|rocket|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
+    return /spacecraft|rocket launch|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
   }
 
   return false;
