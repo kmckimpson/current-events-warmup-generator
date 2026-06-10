@@ -165,6 +165,7 @@
             <label for="sourceMode">News source mode</label>
             <select id="sourceMode">
               <option value="mixed">Mixed public feeds</option>
+              <option value="scienceDaily">ScienceDaily science feeds</option>
               <option value="cnn">CNN-style top stories feed attempt</option>
               <option value="npr">NPR feed only</option>
             </select>
@@ -191,9 +192,17 @@
 <script>
 const FEEDS = {
   mixed: [
+    'https://www.sciencedaily.com/rss/top/science.xml',
     'https://feeds.npr.org/1001/rss.xml',
     'https://feeds.nbcnews.com/nbcnews/public/news',
     'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml'
+  ],
+  scienceDaily: [
+    'https://www.sciencedaily.com/rss/top/science.xml',
+    'https://www.sciencedaily.com/rss/top/health.xml',
+    'https://www.sciencedaily.com/rss/top/technology.xml',
+    'https://www.sciencedaily.com/rss/top/environment.xml',
+    'https://www.sciencedaily.com/rss/all.xml'
   ],
   cnn: [
     'http://rss.cnn.com/rss/cnn_topstories.rss',
@@ -290,10 +299,11 @@ function headlineCategory(headline){
   if(/tech|ai|data|cyber|software|chip|robot|app|internet|phone|spacecraft|rocket launch|satellite|nasa|engineering/.test(t)) return 'technology';
   if(/health|hospital|illness|disease|vaccine|medical|respiratory|science|biology|species|research/.test(t)) return 'health';
   if(/travel|flight|airport|road|traffic|transit|rail|bridge|ship/.test(t)) return 'infrastructure';
+  if(/sports|soccer|football|fifa|world cup|goalie|goalkeeper|players?|athletes?|match|game|tournament|shot|kick|ball/.test(t)) return 'sports and motion';
   if(/election|court|law|policy|congress|president|governor|mayor|city|vote/.test(t)) return 'civic';
   return 'general';
 }
-function categoryNoun(cat){return ({weather:'weather report', economy:'economic report', technology:'technology update', health:'public health report', infrastructure:'travel or infrastructure update', civic:'public policy story', general:'news story'})[cat] || 'news story';}
+function categoryNoun(cat){return ({weather:'weather report', economy:'economic report', technology:'technology update', health:'public health report', infrastructure:'travel or infrastructure update', 'sports and motion':'sports or motion story', civic:'public policy story', general:'news story'})[cat] || 'news story';}
 function selectHeadline(headlines, seed){return headlines[hashString(seed)%Math.max(headlines.length,1)] || 'Top headline';}
 function percent(num, den){return Math.round((num/den)*100);}
 function trendWord(n){return n.d % 2 === 0 ? 'increased' : 'decreased';}
@@ -312,21 +322,23 @@ function hasMilitaryScienceEthicsHook(headline){
 
 function isSensitiveHarmHeadline(headline){
   const t=(headline||'').toLowerCase();
-  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killings?|killed|dead|deaths?|death toll|death penalty|execution|executed|fatal|wounded|injured|victims?|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat|epstein|sex trafficking|sexual exploitation|sexual abuse|infidelities|blackmail|extortion/.test(t);
+  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killings?|killed|dead|deaths?|death toll|death penalty|execution|executed|fatal|wounded|injured|victims?|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat|epstein|sex trafficking|sexual exploitation|sexual abuse|infidelities|blackmail|extortion|violent protest|violent protests|protests erupt|riots?|riot police|civil unrest|anti-immigration protests|clashes|clash with police|mob violence/.test(t);
   const militaryStrike = /airstrike|drone strike|military strike|exchange strikes|rocket system|rocket fire|firing in|border attack|troops?|combat/.test(t);
   const legalTrauma = /death penalty|capital punishment|capital murder|murder charges?|sentencing in .*killings?/.test(t);
   return harmWords || militaryStrike || legalTrauma;
 }
 
 function hasSemanticSafetyConflict(w){
+  // IMPORTANT: use word boundaries. Earlier versions matched "war" inside "warmup,"
+  // which wrongly blocked harmless physics formula tasks.
   const t=((w.headline||'')+' '+(w.eventDesc||'')).toLowerCase();
   const prompt=((w.formula||'')+' '+(w.problem||'')+' '+(w.skill||'')).toLowerCase();
-  const harmContext = /killings?|killed|murder|homicide|death penalty|execution|dead|deaths?|victims?|fatal|injured|wounded|shooting|attack|assault|war|strike/.test(t);
+  const harmContext = /\b(killings?|killed|murder|homicide|death penalty|execution|dead|deaths?|victims?|fatal|injured|wounded|shooting|attack|assault|war|strikes?)\b/.test(t);
   if(!harmContext) return false;
 
-  const biologyBadFit = ['lifeScience','biology'].includes(w.subject) && /population change|births?|deaths?|survival|mortality|organisms? (move|die)|disease spread|risk factor|health outcomes?/.test(prompt);
-  const physicsBadFit = ['physicalScience','physics'].includes(w.subject) && /speed|velocity|force|energy|momentum|work|impact|projectile|motion|distance|acceleration/.test(prompt);
-  const mathBadFit = ['algebra1','geometry','algebra2'].includes(w.subject) && /rate of harm|death rate|casualt|injur|victim|killed|deaths?/.test(prompt);
+  const biologyBadFit = ['lifeScience','biology'].includes(w.subject) && /\b(population change|births?|deaths?|survival|mortality|organisms? (move|die)|disease spread|risk factor|health outcomes?)\b/.test(prompt);
+  const physicsBadFit = ['physicalScience','physics'].includes(w.subject) && /\b(speed|velocity|force|energy|momentum|work|impact|projectile|motion|distance|acceleration)\b/.test(prompt);
+  const mathBadFit = ['algebra1','geometry','algebra2'].includes(w.subject) && /\b(rate of harm|death rate|casualt|injur|victim|killed|deaths?)\b/.test(prompt);
   return biologyBadFit || physicsBadFit || mathBadFit;
 }
 function describeWarmupAnchor(headline, cat){
@@ -348,6 +360,12 @@ function makeSensitiveMathWarmup(subject, h, base){
     return {...common, skill:'interpret charts ethically', relevance:'Graphs can clarify public information, but visualizing tragedy can also sensationalize harm. Geometry and data-display skills include choosing what should and should not be graphed.', problem:`Headline: <strong>${esc(h)}</strong><br><br>A student suggests making a graph of harm from this story. Explain why that may be inappropriate for a warmup. Then name one safer chart connected to the headline, such as a timeline of official updates, a map of public services, or a bar graph of source types used in reporting.`, answer:'A strong answer rejects graphs that quantify harm for practice and proposes a safer display focused on information flow, services, source types, or response steps.'};
   }
   return {...common, skill:'interpret variables in a model ethically', relevance:'Algebra 2 models can be powerful, so students need to understand that model design includes ethical choices about what not to model.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Suppose someone proposes a model using this headline. Write two variables that would be ethical to model for classroom learning and one variable that should be avoided. Explain your choices.`, answer:'Ethical variables might involve number of verified sources, time between official updates, resources available, or response steps. Variables that quantify casualties, weapon performance, or attack mechanics should be avoided.'};
+}
+function sensitiveScienceHeadlineFits(subject, headline){
+  const p=classifyHeadlineConcepts(headline);
+  if(subject==='physicalScience' || subject==='physics') return p.engineering || p.space || p.flight || p.energy || p.electricity || p.waves;
+  if(subject==='lifeScience' || subject==='biology') { if(p.humanConflict && !(p.disease || p.publicHealth || p.genetics || p.bodySystems)) return false; return p.disease || p.ecosystems || p.publicHealth || p.genetics || p.bodySystems; }
+  return false;
 }
 function makeSensitiveScienceWarmup(subject, h, base){
   const attempt = /attempt:(\d+)/.exec(String(base._seed || ''));
@@ -427,6 +445,40 @@ function makeMathWarmup(subject, headlines, seed, n, theme, eventDesc){
 }
 
 
+function scienceScenarioObject(headline, subject, family){
+  const p=classifyHeadlineConcepts(headline);
+  if(p.astronomy){
+    if(family==='motion') return 'hypothetical space probe';
+    if(family==='force') return 'hypothetical object affected by gravity';
+    if(family==='energy') return 'hypothetical space probe changing height in a gravity field';
+    if(family==='wavesElectricity') return 'light or radio signal used by astronomers';
+    return 'space-science model';
+  }
+  if(p.sports){
+    if(family==='motion') return 'player sprinting during a practice drill';
+    if(family==='force') return 'soccer ball in a training model';
+    if(family==='momentum') return 'soccer ball in a training model';
+    return 'sports-science model';
+  }
+  if(p.flight) return 'aircraft in a flight model';
+  if(p.space) return 'rocket or spacecraft model';
+  return subject==='physics' ? 'object in a classroom model' : 'model vehicle connected to the story';
+}
+
+function biologyScenarioText(headline, family){
+  const p=classifyHeadlineConcepts(headline);
+  const h=(headline||'').toLowerCase();
+  const hasRealNeuroHook = !hasMetaphoricalBodyLanguage(headline) && /brain|neuron|neural|neuro|dopamine|serotonin|hormone|nervous system|bad habits?|habit/.test(h);
+  if(hasRealNeuroHook && family==='bodySystems'){
+    return {
+      problem:`Headline: <strong>${esc(headline)}</strong><br><br>The headline mentions the brain, nervous system, behavior, or a body-system chemical. Explain how a chemical signal can affect communication between cells in the nervous system.<br><br>1. What body system is involved?<br>2. What is one structure or cell type likely involved?<br>3. Why would scientists need evidence before claiming the chemical changes behavior?`,
+      answer:'A strong answer names the nervous system, identifies neurons or brain cells, and explains that behavior claims need evidence from controlled research rather than headline wording alone.'
+    };
+  }
+  return null;
+}
+
+
 function makeScienceWarmup(subject, headlines, seed, n, theme, eventDesc){
   const h=selectHeadline(headlines, seed+subject);
   const cat=headlineCategory(h);
@@ -448,16 +500,16 @@ function makeScienceWarmup(subject, headlines, seed, n, theme, eventDesc){
     const templates=[
       ()=>{const dom=3+(n.a%3), rec=2+(n.d%3), total=dom+rec; return {...base, skill:'interpret genetic probability', formula:'Probability = favorable outcomes ÷ total outcomes', relevance:`Biology helps students evaluate living systems, inheritance, body systems, and evidence behind scientific claims.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>In a simple inheritance model, ${dom} out of ${total} possible outcomes show a dominant trait.<br><br>What is the probability of the dominant trait? Write the answer as a fraction, decimal, and percent.`, answer:`Probability = ${dom}/${total} = ${(dom/total).toFixed(2)} ≈ ${percent(dom,total)}%.`};},
       ()=>{const control=n.k, treated=n.k+n.d+2; return {...base, skill:'analyze experimental evidence', relevance:`Biology relies on evidence from controlled comparisons, not just opinions about what should happen.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A class experiment compares a control group with a treatment group. The control group average is ${control} units, and the treatment group average is ${treated} units.<br><br>1. Which group had the higher result?<br>2. By how much?<br>3. Why is it important to have a control group?`, answer:`The treatment group had the higher result by ${treated-control} units. A control group gives a baseline for comparison so students can see whether the treatment made a difference.`};},
-      ()=>{return {...base, skill:'connect structure and function', relevance:`Biology asks how the structure of cells, organs, and body parts supports what they do.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose one structure: red blood cell, alveoli, root hair, or villi.<br><br>Describe one feature of its structure and explain how that feature helps its function.`, answer:`A strong answer links a structure to its job. For example, alveoli have a large surface area, which helps gas exchange happen efficiently.`};},
+      ()=>{const aligned=biologyScenarioText(h,'bodySystems'); if(aligned) return {...base, skill:'connect structure and function', relevance:`Biology asks how the structure of cells, organs, and body parts supports what they do.`, ...aligned}; return {...base, skill:'connect structure and function', relevance:`Biology asks how the structure of cells, organs, and body parts supports what they do.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose one structure: red blood cell, alveoli, root hair, or villi.<br><br>Describe one feature of its structure and explain how that feature helps its function.`, answer:`A strong answer links a structure to its job. For example, alveoli have a large surface area, which helps gas exchange happen efficiently.`};},
       ()=>{const start=50+n.m, end=start+n.d+3; return {...base, skill:'interpret population models', relevance:`Biology often uses data and models to describe how a population changes across time.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A model population starts at ${start} cells and reaches ${end} cells after one time interval.<br><br>1. Did the population increase or decrease?<br>2. By how many cells?<br>3. What additional information would help explain why?`, answer:`The population increased by ${end-start} cells. Helpful additional information could include resources, temperature, disease, competition, or whether the cells had enough nutrients.`};},
-      ()=>{return {...base, skill:'analyze feedback in body systems', relevance:`Body systems often maintain balance through feedback loops that reverse a change.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>When body temperature rises, sweating increases. When blood sugar rises, insulin is released.<br><br>1. What do these examples have in common?<br>2. Are they examples of negative feedback or positive feedback?<br>3. Why?`, answer:`They both help return the body toward a stable condition. They are examples of negative feedback because the response reduces the original change.`};}
+      ()=>{const aligned=biologyScenarioText(h,'bodySystems'); if(aligned) return {...base, skill:'analyze feedback in body systems', relevance:`Body systems often maintain balance through feedback loops, signals, and communication between cells.`, ...aligned}; return {...base, skill:'analyze feedback in body systems', relevance:`Body systems often maintain balance through feedback loops that reverse a change.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>When body temperature rises, sweating increases. When blood sugar rises, insulin is released.<br><br>1. What do these examples have in common?<br>2. Are they examples of negative feedback or positive feedback?<br>3. Why?`, answer:`They both help return the body toward a stable condition. They are examples of negative feedback because the response reduces the original change.`};}
     ]; return templates[idx]();
   }
 
   if(subject==='physicalScience'){
     const templates=[
-      ()=>{const dist=40+n.f, time=4+n.m, speed=(dist/time).toFixed(1); return {...base, skill:'calculate speed', formula:'Speed = distance ÷ time', relevance:`Physical science helps students connect current events to motion, materials, energy, and measurement.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A model vehicle connected to the story travels ${dist} meters in ${time} seconds.<br><br>Calculate its speed.`, answer:`Speed = ${dist} ÷ ${time} = ${speed} m/s.`};},
-      ()=>{const mass=2+n.m, accel=1+n.a, force=mass*accel; return {...base, skill:'interpret force and motion', formula:'Force = mass × acceleration', relevance:`Force and motion help students explain why moving objects speed up, slow down, or change direction.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A model cart has a mass of ${mass} kg and accelerates at ${accel} m/s².<br><br>Calculate the force on the cart and explain what the result means.`, answer:`Force = ${mass} × ${accel} = ${force} N. The result means a force of ${force} newtons would produce that acceleration for a ${mass}-kg cart.`};},
+      ()=>{const dist=40+n.f, time=4+n.m, speed=(dist/time).toFixed(1); const object=scienceScenarioObject(h,'physicalScience','motion'); return {...base, skill:'calculate speed', formula:'Speed = distance ÷ time', relevance:`Physical science helps students connect current events to motion, materials, energy, and measurement.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${object} travels ${dist} meters in ${time} seconds.<br><br>Calculate its speed.`, answer:`Speed = ${dist} ÷ ${time} = ${speed} m/s.`};},
+      ()=>{const mass=2+n.m, accel=1+n.a, force=mass*accel; const object=scienceScenarioObject(h,'physicalScience','force'); return {...base, skill:'interpret force and motion', formula:'Force = mass × acceleration', relevance:`Force and motion help students explain why moving objects speed up, slow down, or change direction.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${object} has a mass of ${mass} kg and accelerates at ${accel} m/s².<br><br>Calculate the force on the model object and explain what the result means.`, answer:`Force = ${mass} × ${accel} = ${force} N. The result means a force of ${force} newtons would produce that acceleration for a ${mass}-kg object in the model.`};},
       ()=>{const initial=120+n.k, transferred=30+n.d; return {...base, skill:'compare energy transfer', formula:'Energy transferred = initial energy − remaining energy', relevance:`Energy transfer helps students think about where energy goes in systems involving heat, light, sound, or motion.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A system starts with ${initial} joules of energy. After transfer, ${transferred} joules have moved to another part of the system.<br><br>How much energy remains in the original part of the system?`, answer:`Remaining energy = ${initial} − ${transferred} = ${initial-transferred} joules.`};},
       ()=>{const mass=25+n.a, volume=3+n.m, dens=(mass/volume).toFixed(1); return {...base, skill:'use density to identify materials', formula:'Density = mass ÷ volume', relevance:`Density helps students compare materials and understand why substances behave differently.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A sample material connected to a classroom model has a mass of ${mass} g and a volume of ${volume} cm³.<br><br>Calculate its density.`, answer:`Density = ${mass} ÷ ${volume} = ${dens} g/cm³.`};},
       ()=>{const bulbs=2+(n.a%3), totalV=3.0+0.5*(n.m%3), each=(totalV/bulbs).toFixed(1); return {...base, skill:'interpret waves or circuits', formula:'In a simple series circuit, total voltage is shared across the bulbs.', relevance:`Physical science includes patterns in waves and circuits, both of which show how a system can distribute energy.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simple series circuit uses ${bulbs} identical bulbs and a battery that provides ${totalV.toFixed(1)} volts.<br><br>If the voltage is shared equally, how many volts are across each bulb?`, answer:`Each bulb gets about ${each} volts because ${totalV.toFixed(1)} ÷ ${bulbs} = ${each}.`};}
@@ -465,15 +517,29 @@ function makeScienceWarmup(subject, headlines, seed, n, theme, eventDesc){
   }
 
   const templates=[
-    ()=>{const distance=90+n.f, time=5+n.m, speed=(distance/time).toFixed(1); return {...base, skill:'apply a motion equation', formula:'Speed = distance ÷ time', relevance:`Physics connects quantitative reasoning to motion, forces, energy, and waves.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>An object in a classroom model moves ${distance} meters in ${time} seconds.<br><br>Calculate its speed and include units.`, answer:`Speed = ${distance} ÷ ${time} = ${speed} m/s.`};},
-    ()=>{const mass=3+n.m, accel=2+n.a, force=mass*accel; return {...base, skill:'interpret force and acceleration', formula:'F = ma', relevance:`Newton’s laws help students connect force with how quickly an object changes motion.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>An object has a mass of ${mass} kg and an acceleration of ${accel} m/s².<br><br>Find the net force on the object.`, answer:`F = ma = ${mass} × ${accel} = ${force} N.`};},
-    ()=>{const mass=4+n.m, height=3+n.a, g=9.8, gpe=(mass*g*height).toFixed(1), time=2+n.m, power=(gpe/time).toFixed(1); return {...base, skill:'calculate energy or power', formula:'Gravitational potential energy = mgh; Power = work ÷ time', relevance:`Energy and power help students compare how much work a system can do and how quickly it does it.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${mass}-kg object is lifted ${height} meters.<br><br>1. Calculate its gravitational potential energy using g = 9.8 m/s².<br>2. If the lift takes ${time} seconds, calculate the average power.`, answer:`GPE = ${mass} × 9.8 × ${height} = ${gpe} J. Power = ${gpe} ÷ ${time} = ${power} W.`};},
-    ()=>{const mass=5+n.m, velocity=4+n.a, momentum=mass*velocity; return {...base, skill:'analyze momentum', formula:'Momentum = mass × velocity', relevance:`Momentum combines mass and velocity, so it helps compare how different moving objects behave.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>An object has a mass of ${mass} kg and a velocity of ${velocity} m/s.<br><br>Calculate its momentum.`, answer:`Momentum = ${mass} × ${velocity} = ${momentum} kg·m/s.`};},
+    ()=>{const distance=90+n.f, time=5+n.m, speed=(distance/time).toFixed(1); const object=scienceScenarioObject(h,'physics','motion'); return {...base, skill:'apply a motion equation', formula:'Speed = distance ÷ time', relevance:`Physics connects quantitative reasoning to motion, forces, energy, and waves.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${object} moves ${distance} meters in ${time} seconds.<br><br>Calculate the average speed and include units.`, answer:`Speed = ${distance} ÷ ${time} = ${speed} m/s.`};},
+    ()=>{const mass=3+n.m, accel=2+n.a, force=mass*accel; const object=scienceScenarioObject(h,'physics','force'); return {...base, skill:'interpret force and acceleration', formula:'F = ma', relevance:`Newton’s laws help students connect force with how quickly an object changes motion.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${object} has a mass of ${mass} kg and an acceleration of ${accel} m/s².<br><br>Find the net force on the model object.`, answer:`F = ma = ${mass} × ${accel} = ${force} N.`};},
+    ()=>{const mass=4+n.m, height=3+n.a, g=9.8, gpe=(mass*g*height).toFixed(1), time=2+n.m, power=(gpe/time).toFixed(1); const object=scienceScenarioObject(h,'physics','energy'); return {...base, skill:'calculate energy or power', formula:'Gravitational potential energy = mgh; Power = work ÷ time', relevance:`Energy and power help students compare how much work a system can do and how quickly it does it.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>In a simplified model, a ${object} changes height by ${height} meters while its mass is ${mass} kg.<br><br>1. Calculate the change in gravitational potential energy using g = 9.8 m/s².<br>2. If the change takes ${time} seconds, calculate the average power.`, answer:`GPE = ${mass} × 9.8 × ${height} = ${gpe} J. Power = ${gpe} ÷ ${time} = ${power} W.`};},
+    ()=>{const mass=5+n.m, velocity=4+n.a, momentum=mass*velocity; const object=scienceScenarioObject(h,'physics','momentum'); return {...base, skill:'analyze momentum', formula:'Momentum = mass × velocity', relevance:`Momentum combines mass and velocity, so it helps compare how different moving objects behave.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${object} has a mass of ${mass} kg and a velocity of ${velocity} m/s.<br><br>Calculate its momentum.`, answer:`Momentum = ${mass} × ${velocity} = ${momentum} kg·m/s.`};},
     ()=>{const wavelength=(1.5 + (n.a/10)).toFixed(1), frequency=40+n.k, speed=(Number(wavelength)*frequency).toFixed(1); return {...base, skill:'interpret waves or electricity', formula:'Wave speed = frequency × wavelength', relevance:`Wave and electricity models help students reason about signals, communication, and how physics ideas apply to technology.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A wave has a wavelength of ${wavelength} m and a frequency of ${frequency} Hz.<br><br>Calculate the wave speed.`, answer:`Wave speed = ${frequency} × ${wavelength} = ${speed} m/s.`};}
   ];
   return templates[idx]();
 }
 
+
+function healthAlignedProblem(headline, base){
+  const t=(headline||'').toLowerCase();
+  if(/supplement|glucosamine|alzheimer|alzheimer’s|dementia|joint health|clinical|patient|medical|treatment/.test(t)){
+    return {
+      ...base,
+      skill:'evaluate health claims',
+      relevance:'Health class helps students evaluate medical and wellness claims by asking what evidence, risks, and limits are being reported.',
+      problem:`Headline: <strong>${esc(headline)}</strong><br><br>The headline makes or reports a health-related claim. Answer these questions:<br>1. What claim is being made about health or disease?<br>2. What evidence would you need before trusting the claim?<br>3. What is one risk of making a health decision from a headline alone?`,
+      answer:'A strong answer identifies the claim, asks for evidence such as study design, sample size, limitations, and expert review, and explains that health decisions should not be made from a headline alone.'
+    };
+  }
+  return null;
+}
 
 function makeHumanitiesWarmup(subject, headlines, seed, n, theme, eventDesc){
   const h=selectHeadline(headlines, seed+subject);
@@ -534,6 +600,7 @@ function makeHumanitiesWarmup(subject, headlines, seed, n, theme, eventDesc){
   }
 
   if(subject==='health'){
+    const alignedHealth=healthAlignedProblem(h, base); if(alignedHealth) return alignedHealth;
     const templates=[
       ()=>({...base, skill:'identify risk and protective factors', relevance:`Health skills connect current events to risk, prevention, personal choices, community conditions, and how claims should be evaluated.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Identify one health factor connected to this story. Then name one risk factor and one protective factor related to the issue.`, answer:`A strong answer names a specific health factor, a condition or behavior that could increase harm, and a factor that could reduce harm.`}),
       ()=>({...base, skill:'interpret public health information', relevance:`Students need practice reading health information in ways that separate actual risk from fear or rumor.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>What kind of health information would help someone understand this issue better? Name two examples, such as a rate, trend, or guideline, and explain why each would matter.`, answer:`A strong answer names useful public health information and explains how it would clarify actual risk, exposure, or prevention.`}),
@@ -562,22 +629,81 @@ function formulaNeedsDirectScienceFit(w){
   if(!f) return false;
   return /density|speed|force|work|momentum|potential energy|f = ma|mgh|velocity/.test(f);
 }
-function formulaFitsHeadline(w){
-  if(isScienceBrandFinanceHeadline(w.headline||'')) return false;
-  const cat=headlineCategory(w.headline||'');
-  const t=(w.headline||'').toLowerCase();
-  const f=(w.formula||'').toLowerCase();
-  if(!f) return true;
-  if(w.safetyNote) return true;
+function questionScenarioFamily(w){
+  const text=((w.problem||'')+' '+(w.formula||'')+' '+(w.skill||'')).toLowerCase();
+  if(/waxy leaf|thick fur|webbed feet|deep roots|habitat|environment|ecosystem|species|adaptation|carrying capacity|food web|trophic/.test(text)) return 'ecosystems';
+  if(/cell|organ|body|brain|neuron|chemical|dopamine|serotonin|red blood cell|alveoli|villi|root hair|homeostasis|feedback/.test(text)) return 'bodySystems';
+  if(/genetic|gene|trait|probability|allele/.test(text)) return 'genetics';
+  if(/disease|transmission|virus|bacteria|infection|vaccine/.test(text)) return 'disease';
+  if(/speed|distance|time|velocity|accelerat|motion|moves|travels|sprint|ball|cart|vehicle/.test(text)) return 'motion';
+  if(/force|f = ma|newton/.test(text)) return 'force';
+  if(/energy|power|work|mgh|heat|temperature|fuel|combustion/.test(text)) return 'energy';
+  if(/wave|frequency|wavelength|voltage|circuit|battery|electric/.test(text)) return 'wavesElectricity';
+  if(/density|mass|volume|material|substance/.test(text)) return 'materials';
+  if(/chemical|physical change|states of matter/.test(text)) return 'chemistryMatter';
+  if(/risk factor|protective factor|health claim|public health|nutrition|sleep|exercise|mental health|coping/.test(text)) return 'health';
+  if(/evidence|claim|model|measurement|engineering|constraints|inputs|outputs|responsible use|ethic/.test(text)) return 'scienceReasoning';
+  return 'general';
+}
+
+function headlineSupportsQuestionScenario(w){
+  const p=classifyHeadlineConcepts(w.headline||'');
+  const fam=questionScenarioFamily(w);
+
+  // A science subject match is not enough. The actual classroom scenario must fit
+  // the headline's concept branch.
   if(['lifeScience','biology'].includes(w.subject)){
-    return ['health','weather','technology'].includes(cat) || /species|ecosystem|habitat|disease|health|vaccine|medical|climate|wildfire|research|biology|water|food|environment|animal|plant/.test(t);
+    if((p.civic || p.government || p.history || p.humanConflict) && !(p.disease || p.ecosystems || p.genetics || p.bodySystems)) return false;
+    if(p.astronomy) return false;
+    if(fam==='ecosystems') return p.ecosystems;
+    if(fam==='bodySystems') return p.bodySystems || p.disease;
+    if(fam==='genetics') return p.genetics;
+    if(fam==='disease') return p.disease || p.publicHealth;
+    if(fam==='scienceReasoning') return p.lifeSystems || p.disease || p.ecosystems || p.genetics || p.bodySystems;
+    return p.lifeSystems;
   }
-  if(['physicalScience','physics'].includes(w.subject)){
-    if(/density/.test(f)) return ['weather','technology','infrastructure','health'].includes(cat) && /material|water|fuel|battery|building|bridge|ship|storm|weather|science|energy|vehicle|flight|airport|road|transit|oil|gasoline|alloy|metal|plastic|composite/.test(t) && !/ipo|millionaires|stock|shares|valuation/.test(t);
-    if(/circuit|voltage|battery/.test(f)) return /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|signal|radio|wave|communication|internet|phone|satellite|radar|utility|blackout|outage/.test(t);
-    if(formulaNeedsDirectScienceFit(w)) return ['weather','technology','infrastructure','health'].includes(cat) || /spacecraft|rocket launch|satellite|vehicle|flight|pilot|aircraft|jet|storm|wind|energy|bridge|transit|traffic|ship|machine|engine|power|electric|battery|gasoline|fuel/.test(t);
+
+  if(w.subject==='health'){
+    if(p.astronomy) return false;
+    if(fam==='health') return p.health || p.mentalHealth || p.nutrition || p.publicHealth;
+    if(fam==='bodySystems') return p.health && p.bodySystems;
+    return p.health;
   }
+
+  if(w.subject==='physicalScience'){
+    if(!hasPhysicalScienceCalculationHook(w.headline||'')) return false;
+    if(/charging speed|charging rate|charge time|recharge|battery charging|electric vehicle charging/.test((w.headline||'').toLowerCase()) && !['wavesElectricity','energy'].includes(fam)) return false;
+    if(isEconomicPriceHeadline(w.headline||'') && !['energy','materials','chemistryMatter'].includes(fam)) return false;
+    if(fam==='motion') return p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(fam==='force') return p.force || p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(fam==='energy') return p.energy || p.astronomy || p.space;
+    if(fam==='wavesElectricity') return p.waves || p.electricity || /light|radiation|signal|telescope/.test((w.headline||'').toLowerCase());
+    if(fam==='materials') return p.materials && !p.astronomy;
+    if(fam==='chemistryMatter') return (p.chemistry || p.materials || p.weather) && !p.astronomy;
+    if(fam==='scienceReasoning') return false;
+    return false;
+  }
+
+  if(w.subject==='physics'){
+    if(!hasPhysicsCalculationHook(w.headline||'')) return false;
+    if(/charging speed|charging rate|charge time|recharge|battery charging|electric vehicle charging/.test((w.headline||'').toLowerCase()) && !['wavesElectricity','energy'].includes(fam)) return false;
+    if(fam==='motion') return p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(fam==='force') return p.force || p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(fam==='energy') return p.energy || p.astronomy || p.space;
+    if(fam==='wavesElectricity') return p.waves || p.electricity || /light|radiation|signal|telescope/.test((w.headline||'').toLowerCase());
+    if(fam==='materials' || fam==='chemistryMatter') return false;
+    if(fam==='scienceReasoning') return false;
+    return false;
+  }
+
   return true;
+}
+
+function formulaFitsHeadline(w){
+  if(!headlineSupportsQuestionScenario(w)) return false;
+  if(!w.formula) return true;
+  if(w.safetyNote) return true;
+  return conceptProfileFitsTemplate(w.subject, w.headline||'', w.skill||'', w.formula||'');
 }
 function makeRelevanceRedirect(w){
   const subjectLabel = SUBJECTS[w.subject]?.label || 'this subject';
@@ -599,18 +725,20 @@ function applyRelevanceCheck(w){
   if(hasSemanticSafetyConflict(w)){
     const base={...w, formula:'', safetyNote:'Moral filter active: the headline involves violence, death, injury, or legal trauma. The first generated task had unsafe semantic overlap with harm-related concepts, so it was redirected.'};
     if(['lifeScience','biology','physicalScience','physics'].includes(w.subject)){
-      return makeSensitiveScienceWarmup(w.subject, w.headline, base);
+      if(sensitiveScienceHeadlineFits(w.subject, w.headline)) return makeSensitiveScienceWarmup(w.subject, w.headline, base);
+      return makeRelevanceRedirect({...base, skill:'headline not suitable for this subject'});
     }
     if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(w.subject)){
       return makeSensitiveHumanitiesWarmup(w.subject, w.headline, base);
     }
     return makeSensitiveMathWarmup(w.subject, w.headline, base);
   }
+  if(!headlineSupportsQuestionScenario(w)) return makeRelevanceRedirect(w);
   if(w.safetyNote){
     return {...w, relevanceCheck:'Passed relevance check: sensitive headline detected, so harm-based calculations were blocked and the task was redirected.'};
   }
   if(!formulaFitsHeadline(w)) return makeRelevanceRedirect(w);
-  return {...w, relevanceCheck:'Passed relevance check: the selected skill directly helps interpret a measurable or discipline-specific part of the headline.'};
+  return {...w, relevanceCheck:'Passed relevance check: the actual warmup scenario aligns with the headline concept branch.'};
 }
 
 function textHas(t, re){ return re.test((t||'').toLowerCase()); }
@@ -669,84 +797,262 @@ function hasFlightMotionHook(headline){
 function hasSportsMotionHook(headline){
   return /soccer|football|fifa|world cup|goalie|goalkeeper|player|players|athlete|athletes|match|game|tournament|shot|kick|ball|race|running|sprint|baseball|basketball|tennis|olympic|sports/.test((headline||'').toLowerCase());
 }
-function hasConceptCluster(subject, headline, skill){
+function hasMetaphoricalBodyLanguage(headline){
   const t=(headline||'').toLowerCase();
-  const s=(skill||'').toLowerCase();
+  return /heart of|heartbeat of|backbone of|nerve center of|brain trust|political body|body politic|arms of government|leg of a trip|head of state|face of/.test(t);
+}
+function isPureViewingOrScheduleSportsHeadline(headline){
+  const t=(headline||'').toLowerCase();
+  return /(how to watch|where to watch|what to know|schedule|broadcast|streaming|tickets?|preview)/.test(t) && /(world cup|fifa|game|match|tournament|sports|football|soccer)/.test(t) && !/(player|players|goalie|goalkeeper|shot|kick|ball|sprint|speed|fast|faster|athlete|training|performance)/.test(t);
+}
+function isEconomicPriceHeadline(headline){
+  const t=(headline||'').toLowerCase();
+  return /(inflation|prices?|gasoline prices?|costs?|market|stock|shares|wages?|jobs|spending|budget)/.test(t);
+}
+function hasPhysicsCalculationHook(headline){
+  const p=classifyHeadlineConcepts(headline);
+  if(p.civicAcronymOnly || p.medicalHealthStory || p.financeOnlyScienceBrand) return false;
+  if(isPureViewingOrScheduleSportsHeadline(headline)) return false;
+  if(isEconomicPriceHeadline(headline)) return false;
+  return p.motion || p.force || p.energy || p.waves || p.electricity || p.astronomy || p.space || p.flight || (p.sports && !isPureViewingOrScheduleSportsHeadline(headline));
+}
+function hasPhysicalScienceCalculationHook(headline){
+  const p=classifyHeadlineConcepts(headline);
+  if(p.civicAcronymOnly || p.medicalHealthStory || p.financeOnlyScienceBrand) return false;
+  if(isPureViewingOrScheduleSportsHeadline(headline)) return false;
+  if(isEconomicPriceHeadline(headline)){
+    return /gasoline|fuel|oil|energy|electricity|battery|power|grid|heat|temperature|materials?|chemical/.test((headline||'').toLowerCase());
+  }
+  return p.motion || p.force || p.energy || p.waves || p.electricity || p.materials || p.chemistry || p.astronomy || p.space || p.flight || (p.sports && !isPureViewingOrScheduleSportsHeadline(headline));
+}
+function classifyHeadlineConcepts(headline){
+  const t=(headline||'').toLowerCase();
 
-  // Math: concept families must find a quantitative, trend, spatial, model, or comparison hook.
-  if(subject==='algebra1'){
-    if(/slope/.test(s)) return /trend|increase|decrease|growth|decline|forecast|rate|over time|days?|weeks?|months?|prices?|inflation|temperature|rain|traffic|jobs|market|poll|survey|sports|score|fifa|world cup/.test(t);
-    if(/ratio/.test(s)) return /\d|%|percent|ratio|share|portion|poll|survey|vote|budget|funding|spending|cost|prices?|jobs|population|group|total|count|number|sports|players|teams/.test(t);
-    if(/equation|variables|chart/.test(s)) return hasQuantitativeHeadlineContext(headline);
-  }
-  if(subject==='geometry'){
-    if(/line of best fit|correlation|predict/.test(s)) return /forecast|trend|data|survey|poll|rate|prices?|inflation|weather|storm|temperature|traffic|flight|market|jobs|growth|decline|increase|decrease|study|research|over time|sports|players|teams|world cup/.test(t);
-    if(/area|volume|proportion|scale/.test(s)) return /map|scale|model|image|graphic|chart|area|land|water|building|bridge|road|transit|storm|weather|flood|wildfire|housing|construction|spacecraft|satellite|screen|display|infrastructure|ship|vehicle|stadium|field/.test(t);
-  }
-  if(subject==='algebra2'){
-    if(/function|quadratic|regression/.test(s)) return /forecast|trend|index|growth|decline|increase|decrease|prices?|inflation|market|jobs|temperature|weather|traffic|population|study|research|poll|survey|over time|days?|weeks?|months?|sports|players|scores|world cup/.test(t);
-    if(/systems|multistep|variables|equations?/.test(s)) return /budget|funding|cost|prices?|loan|tax|spending|wage|income|rent|housing|sales|energy|gasoline|jobs|trade|contracts?|salary|teams|players/.test(t) || hasExplicitNumberSignal(t);
+  const profile = {
+    sensitiveHarm:isSensitiveHarmHeadline(headline),
+    quantitative:hasQuantitativeHeadlineContext(headline),
+    motion:false,
+    force:false,
+    energy:false,
+    waves:false,
+    electricity:false,
+    materials:false,
+    chemistry:false,
+    engineering:false,
+    measurement:false,
+    sports:false,
+    flight:false,
+    space:false,
+    weather:false,
+    astronomy:false,
+    lifeSystems:false,
+    ecosystems:false,
+    genetics:false,
+    disease:false,
+    bodySystems:false,
+    health:false,
+    mentalHealth:false,
+    nutrition:false,
+    publicHealth:false,
+    civic:false,
+    government:false,
+    history:false,
+    world:false,
+    us:false,
+    language:true,
+    psychology:false,
+    financeOnlyScienceBrand:false,
+    civicAcronymOnly:false,
+    medicalHealthStory:false,
+    humanConflict:false
+  };
+
+  const scienceBrand=/spacex|tesla|boeing|nasa|blue origin|openai|google|apple|microsoft|nvidia|meta|amazon/.test(t);
+  const financeOnly=/ipo|stock|stocks|shares|valuation|millionaires|billionaires|market cap|earnings|profit|revenue|investors?|wall street/.test(t);
+  const actualScience=/launch|rocket|rockets|mission|orbit|satellite|spacecraft|engine|test flight|propulsion|battery|vehicle|software|chip|ai model|data center|grid|robot|science|research|experiment|engineering|manufacturing|materials?|faster|speed|velocity|acceleration/.test(t);
+  profile.financeOnlyScienceBrand = scienceBrand && financeOnly && !actualScience;
+  profile.humanConflict = /violent protest|violent protests|protests erupt|riot|riots|civil unrest|anti-immigration|clashes|war|strike|strikes|attack|assault|murder|killings?|border patrol|ice/.test(t);
+  profile.civicAcronymOnly = /\bice\b/.test(t) && /congress|protester|protesters|database|immigration|border|detention|deportation|agency|letter to congress|law enforcement/.test(t) && !/water|frozen|temperature|glacier|snow|weather|climate|melt|melting|heat|cold/.test(t);
+  profile.medicalHealthStory = /supplement|glucosamine|alzheimer|alzheimer’s|dementia|disease|diagnosis|treatment|therapy|patient|clinical|medicine|medical|drug|health|joint health|arthritis|brain|neuro|hospital|doctor|vaccine|infection|virus|bacteria|cancer|diabetes/.test(t);
+
+
+  profile.sports = /soccer|football|fifa|world cup|goalie|goalkeeper|player|players|athlete|athletes|match|game|tournament|shot|kick|ball|race|running|sprint|baseball|basketball|tennis|olympic|sports/.test(t);
+  profile.flight = /pilot|fighter pilot|fighter jet|jet|aircraft|airplane|plane|flight|flying|top gun|aviation|takeoff|landing|altitude|airspeed/.test(t);
+  profile.space = /space|spacex|nasa|rocket|rockets|satellite|spacecraft|mission|orbit|launch|propulsion/.test(t);
+  profile.weather = /storm|weather|hurricane|heat wave|rain|flood|snow|climate|wildfire|wind|temperature|coastal/.test(t);
+  profile.astronomy = /space-time|spacetime|planet|planetary|cosmos|cosmic|universe|galaxy|star|black hole|gravity|orbit|astronomy|astrophysics|dark matter|dark energy/.test(t);
+
+  // Conceptual motion is broader than motion keywords. Rockets, sports, flight, vehicles,
+  // storms, traffic, and travel all imply movement even if "velocity" is not in the headline.
+  profile.motion = (profile.sports || profile.flight || profile.space ||
+    /vehicle|traffic|transit|rail|ship|road|travel|transport|moving|moves|movement|faster|fast|slower|speed|velocity|acceleration|distance|time/.test(t)) && !/alzheimer|dementia|disease progression|progression|supplement|glucosamine|joint health|arthritis|clinical|patient|medical|treatment/.test(t);
+  profile.force = profile.motion || /force|impact|collision|gravity|magnetic|electric field|pressure|structural|bridge|infrastructure/.test(t);
+  profile.energy = profile.space || profile.sports || /energy|power|electricity|battery|fuel|gasoline|oil|grid|utility|heat|engine|combustion|thermal|calorie|work/.test(t);
+  profile.waves = /wave|sound|light|radio|signal|communication|internet|phone|satellite|radar|broadcast|wireless/.test(t);
+  profile.electricity = /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|chip|semiconductor|utility|blackout|outage/.test(t);
+  profile.materials = /material|materials|water|fuel|oil|gasoline|battery|building|bridge|ship|construction|infrastructure|substance|alloy|metal|plastic|composite|manufacturing/.test(t);
+  profile.chemistry = /chemical|reaction|pollution|air|water|ice|gas|gasoline|oil|fuel|combustion|industrial|manufacturing|substance/.test(t);
+  profile.engineering = profile.space || profile.flight || profile.electricity || /technology|engineering|ai|drone|radar|system|weapon system|defense system|infrastructure|machine|engine|design|built|build/.test(t);
+  profile.measurement = profile.quantitative || /measured|measure|data|study|research|record|faster|first time|rate|trend|forecast|percent|%|\d/.test(t);
+
+  profile.ecosystems = /species|ecosystem|habitat|wildlife|animal|plant|climate|wildfire|food|water|environment|pollution|agriculture|fish|\bmigration\b/.test(t) && !/immigration|anti-immigration/.test(t);
+  profile.genetics = /genetic|gene|dna|inherit|trait|biotech|biotechnology/.test(t);
+  profile.disease = /disease|vaccine|medical|health|virus|bacteria|infection|hospital|illness|public health/.test(t);
+  profile.bodySystems = /body|heart|lung|brain|immune|respiratory|digestive|endocrine|homeostasis|hydration|blood sugar|organ|cell|sleep/.test(t);
+  profile.lifeSystems = profile.ecosystems || profile.genetics || profile.disease || profile.bodySystems || /biology|research|study|population/.test(t);
+
+  profile.health = profile.disease || /health|medical|hospital|risk|safety|injury|heat illness|weather risk|pollution|drug|addiction|prevention|wellness|care|medicine|trauma|support|counseling|treatment|therapy|diagnosis|patient|public health|nutrition|diet|exercise|fitness|sleep|supplement|glucosamine|alzheimer|alzheimer’s|dementia|joint health|arthritis|clinical/.test(t);
+  profile.mentalHealth = /stress|mental|emotion|coping|support|counseling|trauma|fear|anxiety|sleep/.test(t);
+  profile.nutrition = /food|nutrition|diet|calorie|obesity|fitness|exercise|hydration/.test(t);
+  profile.publicHealth = /public health|disease|vaccine|hospital|risk|safety|prevention|pollution|water|air|heat|drug|access to care|supplement|alzheimer|alzheimer’s|dementia|clinical|patient/.test(t);
+
+  profile.civic = /election|vote|voter|court|law|lawsuit|policy|congress|president|governor|mayor|city council|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration|executive order|regulation|constitution|constitutional|police|ice|border patrol|school board/.test(t);
+  profile.government = profile.civic;
+  profile.world = /china|taiwan|iran|israel|gaza|russia|ukraine|europe|asia|africa|global|world|international|foreign|trade|migration|climate|war|conflict|empire|colonial|revolution|treaty|border|sanctions|refugee|nato|united nations|diplomacy/.test(t);
+  profile.us = /u\.s\.|us |america|american|white house|congress|president|supreme court|doj|federal|state|civil rights|immigration|border|labor|economy|policy|rights|war|veteran|election|voting|court ruling|constitutional|union|tariff|trade|tax|new deal|reconstruction|cold war|ice|border patrol/.test(t);
+  profile.history = hasHistoricalProcessHook(headline) || profile.world || profile.us;
+
+  profile.psychology = /stress|behavior|decision|social|survey|mental|health|fear|risk|teen|youth|workplace|school|sleep|media|misinformation|public reaction|poll|attention|memory|emotion|motivation|bias|belief|group|sports|players|performance/.test(t) || profile.mentalHealth || profile.sports;
+
+  if(profile.humanConflict && !/species|ecosystem|habitat|wildlife|animal|plant|disease|vaccine|medical|health|biology|research|study|climate|wildfire|food|water|environment|pollution|genetic|virus|bacteria|population|cell|organ|body|biotech|agriculture|fish|\bmigration\b/.test(t)){
+    profile.ecosystems = false;
+    profile.lifeSystems = false;
   }
 
-  // Humanities and social studies: skill clusters look for conceptual fit, not just any current event.
-  if(subject==='english') return true;
-  if(subject==='worldHistory'){
-    if(/geography|migration|borders/.test(s)) return /border|migration|refugee|china|taiwan|iran|israel|gaza|russia|ukraine|global|international|foreign|trade|route|water|resource|climate|nato|united nations/.test(t);
-    if(/trade|resources/.test(s)) return /trade|tariff|resources?|oil|gasoline|energy|market|sanctions|supply chain|economy|global/.test(t);
-    if(/diplomacy|conflict|empire|colonial|historical context|patterns|cause|continuity|primary/.test(s)) return hasHistoricalProcessHook(headline);
+  if((profile.civic || profile.government || profile.history || profile.humanConflict) && !/brain|neuron|neural|neuro|dopamine|serotonin|hormone|cell|organ|disease|virus|bacteria|medical|health|biology|body|immune|respiratory|digestive|endocrine/.test(t)){
+    profile.bodySystems = false;
+    profile.lifeSystems = false;
   }
-  if(subject==='usHistory'){
-    if(/federal|states/.test(s)) return /federal|state|supreme court|congress|president|governor|policy|rights|law|border|immigration/.test(t);
-    if(/civil rights|liberties/.test(s)) return /rights|liberty|free speech|due process|equal protection|civil rights|court|law|justice|police|voting/.test(t);
-    if(/labor|economic/.test(s)) return /labor|union|jobs|wages?|work|workers?|economy|inflation|prices?|tax|trade|industry/.test(t);
-    if(/reform|public memory|evidence|cause|continuity|context|policy debates/.test(s)) return hasHistoricalProcessHook(headline);
+  if(hasMetaphoricalBodyLanguage(headline)){
+    profile.bodySystems = false;
   }
-  if(subject==='civics'){
-    if(/institutions|law|accountability|policy|decision|stakeholders|participation|rights|values/.test(s)) return /election|vote|voter|court|law|lawsuit|policy|congress|president|governor|mayor|city council|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration|executive order|regulation|constitution|constitutional|police|ice|border patrol|school board/.test(t);
+  if(/charging speed|charging rate|charge time|recharge|battery charging/.test(t) && !/driving speed|vehicle speed|road speed|mph|km\/h/.test(t)){
+    profile.motion = false;
+    profile.force = false;
   }
-  if(subject==='government'){
-    if(/branches|powers|checks|federalism|constitutional|authority|agency|elections|rulemaking|budgets|due process/.test(s)) return /election|vote|court|law|lawsuit|policy|congress|president|governor|mayor|state|federal|agency|supreme court|bill|funding|budget|rights|doj|justice|senate|house|administration|executive order|regulation|constitution|constitutional|due process|border|ice|police/.test(t);
+
+  return profile;
+}
+
+function templateConceptFamily(subject, skill, formula=''){
+  const s=((skill||'')+' '+(formula||'')).toLowerCase();
+  if(['physicalScience','physics'].includes(subject)){
+    if(/waves|electricity|circuit|voltage|battery|wave speed/.test(s)) return 'wavesElectricity';
+    if(/momentum/.test(s)) return 'momentum';
+    if(/force|acceleration|f = ma|fields/.test(s)) return 'force';
+    if(/energy|power|work|conservation|mgh/.test(s)) return 'energy';
+    if(/density|materials?|properties|material/.test(s)) return 'materials';
+    if(/chemical|physical change|states of matter|temperature|heat transfer/.test(s)) return 'chemistryMatter';
+    if(/ethics|engineering|responsible use|technology/.test(s)) return 'engineeringEthics';
+    if(/speed|motion|velocity|motion equation/.test(s)) return 'motion';
   }
-  if(subject==='psychology'){
-    if(/stress|emotion|coping/.test(s)) return /stress|fear|risk|crisis|mental|health|trauma|school|teen|youth|workplace|sleep|emotion/.test(t) || isSensitiveHarmHeadline(headline);
-    if(/bias|attention|memory|motivation|group|behavior|developmental|correlation/.test(s)) return /behavior|decision|social|survey|poll|media|misinformation|public reaction|belief|group|teen|youth|school|workplace|sports|players|performance|attention|memory|motivation/.test(t);
+  if(['lifeScience','biology'].includes(subject)){
+    if(/ecosystem|biotic|abiotic|habitat|human impact|resources|carrying capacity|energy flow/.test(s)) return 'ecosystems';
+    if(/genetic|inherited|trait|evolution|selection/.test(s)) return 'genetics';
+    if(/disease|transmission|experimental|evidence|study/.test(s)) return 'diseaseEvidence';
+    if(/structure|function|cells|organ|feedback|homeostasis|body systems/.test(s)) return 'bodySystems';
+    if(/population|adaptation|survival/.test(s)) return 'population';
+    if(/biotechnology|ethics/.test(s)) return 'bioEthics';
   }
   if(subject==='health'){
-    if(/body systems|homeostasis|nutrition|sleep|physical activity|mental health|coping|public health|risk|prevention|claims|behavior/.test(s)) return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention|nutrition|sleep|exercise|body|heart|lung|brain|immune|respiratory|digestive|endocrine|homeostasis|hydration|blood sugar|diet|fitness|wellness|public health|care|medicine|sports|athlete/.test(t) || isSensitiveHarmHeadline(headline);
+    if(/body systems|homeostasis/.test(s)) return 'bodySystems';
+    if(/nutrition|energy balance/.test(s)) return 'nutrition';
+    if(/mental health|coping|stress/.test(s)) return 'mentalHealth';
+    if(/physical activity|sleep/.test(s)) return 'activitySleep';
+    if(/public health|risk|prevention|claims|behavior|outcomes/.test(s)) return 'publicHealth';
   }
+  if(subject==='psychology'){
+    if(/bias|attention|memory/.test(s)) return 'cognition';
+    if(/stress|emotion|coping/.test(s)) return 'stressEmotion';
+    if(/motivation|behavior|group|developmental|correlation/.test(s)) return 'behavior';
+  }
+  if(subject==='worldHistory') return 'worldHistory';
+  if(subject==='usHistory') return 'usHistory';
+  if(subject==='civics') return 'civics';
+  if(subject==='government') return 'government';
+  if(subject==='english') return 'language';
+  if(['algebra1','geometry','algebra2'].includes(subject)) return 'math';
+  return 'general';
+}
 
-  // Life science / biology.
+function conceptProfileFitsTemplate(subject, headline, skill, formula=''){
+  const p=classifyHeadlineConcepts(headline);
+  const family=templateConceptFamily(subject, skill, formula);
+  const t=(headline||'').toLowerCase();
+
+  if(p.financeOnlyScienceBrand && ['physicalScience','physics','lifeScience','biology'].includes(subject)) return false;
+  if(['physicalScience','physics'].includes(subject) && p.civicAcronymOnly) return false;
+  if(['physicalScience','physics'].includes(subject) && p.medicalHealthStory && !(p.motion || p.force || p.energy || p.waves || p.electricity || p.astronomy || p.engineering)) return false;
+  if(p.humanConflict && ['lifeScience','biology'].includes(subject) && !(p.disease || p.publicHealth || p.genetics || p.bodySystems || p.ecosystems)) return false;
+  if(p.astronomy && ['lifeScience','biology','health'].includes(subject) && !(p.lifeSystems || p.health || p.disease || p.bodySystems || p.genetics || p.ecosystems)) return false;
+
+  if(subject==='physics'){
+    if(!hasPhysicsCalculationHook(headline)) return false;
+    if(/charging speed|charging rate|charge time|recharge|battery charging|electric vehicle charging/.test(t) && !['wavesElectricity','energy'].includes(family)) return false;
+    if(family==='motion') return p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(family==='force') return p.force || p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(family==='energy') return p.energy || p.astronomy || p.space;
+    if(family==='momentum') return (p.motion || p.space || p.flight || p.sports) && !p.sensitiveHarm;
+    if(family==='wavesElectricity') return p.waves || p.electricity || /light|radiation|telescope|signal/.test(t);
+    if(family==='engineeringEthics') return false;
+    return false;
+  }
+  if(subject==='physicalScience'){
+    if(!hasPhysicalScienceCalculationHook(headline)) return false;
+    if(/charging speed|charging rate|charge time|recharge|battery charging|electric vehicle charging/.test(t) && !['wavesElectricity','energy'].includes(family)) return false;
+    if(isEconomicPriceHeadline(headline) && !['energy','materials','chemistryMatter'].includes(family)) return false;
+    if(family==='motion') return p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(family==='force') return p.force || p.motion || p.astronomy || p.space || p.flight || p.sports;
+    if(family==='energy') return p.energy || p.astronomy || p.space;
+    if(family==='materials') return p.materials && !p.astronomy;
+    if(family==='wavesElectricity') return p.waves || p.electricity || /light|radiation|telescope|signal/.test(t);
+    if(family==='chemistryMatter') return (p.chemistry || p.materials || p.weather) && !p.astronomy;
+    if(family==='engineeringEthics') return false;
+    return false;
+  }
   if(subject==='lifeScience'){
-    if(/ecosystem|biotic|abiotic|habitat|human impact|resources|carrying capacity|population|adaptation|survival|traits|energy flow|structure/.test(s)) return /species|ecosystem|habitat|wildlife|animal|plant|disease|vaccine|medical|health|biology|research|study|climate|wildfire|food|water|environment|pollution|genetic|virus|bacteria|population|agriculture/.test(t);
+    if((p.civic || p.government || p.history || p.humanConflict) && !(p.disease || p.ecosystems || p.genetics || p.bodySystems)) return false;
+    if(p.astronomy) return false;
+    if(family==='ecosystems') return p.ecosystems;
+    if(family==='genetics') return p.genetics;
+    if(family==='population') return p.ecosystems || /\bpopulation\b/i.test(headline);
+    if(family==='bodySystems') return p.bodySystems || p.disease;
+    return p.lifeSystems && !p.astronomy;
   }
   if(subject==='biology'){
-    if(/genetic|experimental|structure|population|feedback|cells|organ|homeostasis|biotechnology|disease|evolution|selection/.test(s)) return /species|ecosystem|habitat|disease|vaccine|medical|health|biology|research|study|climate|food|water|environment|animal|plant|cell|organ|body|biotech|agriculture|virus|bacteria|genetic/.test(t);
+    if((p.civic || p.government || p.history || p.humanConflict) && !(p.disease || p.ecosystems || p.genetics || p.bodySystems)) return false;
+    if(p.astronomy) return false;
+    if(family==='genetics') return p.genetics;
+    if(family==='diseaseEvidence') return p.disease || /study|research|evidence|scientists discover/i.test(headline);
+    if(family==='bodySystems') return p.bodySystems || p.disease;
+    if(family==='population') return p.ecosystems || /\bpopulation\b/i.test(headline);
+    if(family==='bioEthics') return p.genetics || p.disease || /biotech|technology|research/i.test(headline);
+    return p.lifeSystems && !p.astronomy;
   }
-
-  // Physical science / physics.
-  if(subject==='physicalScience'){
-    if(/speed|force|motion/.test(s)) return hasFlightMotionHook(headline) || hasSportsMotionHook(headline) || /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|spacecraft|rocket launch|satellite|motion|speed|travel|transport/.test(t);
-    if(/density|materials?|properties|material/.test(s)) return /material|water|fuel|oil|gasoline|battery|building|bridge|ship|storm|weather|science|energy|vehicle|construction|infrastructure|chemical|substance|alloy|metal|plastic|composite/.test(t) && !/ipo|millionaires|stock|shares|valuation/.test(t);
-    if(/energy|heat|temperature|fuel/.test(s)) return /energy|fuel|gasoline|oil|power|electricity|heat|temperature|weather|climate|battery|engine|combustion|fire|thermal|utility|grid|prices?/.test(t);
-    if(/waves|circuits|voltage|electric/.test(s)) return /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|chip|semiconductor|signal|radio|wave|communication|internet|phone|satellite|radar|sensor|utility|blackout|outage/.test(t);
-    if(/chemical|matter|states/.test(s)) return /chemical|substance|material|water|ice|gas|gasoline|oil|pollution|air|heat|temperature|fuel|reaction|manufacturing|industrial/.test(t);
-    if(/ethics|engineering/.test(s)) return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|chemical|nuclear|infrastructure|spacex|nasa|spacecraft/.test(t);
+  if(subject==='health'){
+    if(p.astronomy) return false;
+    if(family==='bodySystems') return p.health && p.bodySystems;
+    if(family==='nutrition') return p.nutrition || /food|diet|nutrition|exercise|sports|athlete/i.test(headline);
+    if(family==='mentalHealth') return p.mentalHealth || /addiction|habits?|coping|stress|therapy|counseling/i.test(headline);
+    if(family==='activitySleep') return /sleep|exercise|fitness|sports|athlete|health/i.test((headline||'').toLowerCase());
+    if(family==='publicHealth') return p.publicHealth || (p.health && /risk|safety|prevention|disease|vaccine|hospital|pollution|heat|drug|addiction/i.test(headline));
+    return p.health;
   }
-  if(subject==='physics'){
-    if(/motion|speed|velocity/.test(s)) return hasFlightMotionHook(headline) || hasSportsMotionHook(headline) || /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|spacecraft|rocket launch|satellite|motion|speed|travel|transport/.test(t);
-    if(/force|acceleration|fields/.test(s)) return hasFlightMotionHook(headline) || hasSportsMotionHook(headline) || /force|acceleration|gravity|magnetic|electric|field|vehicle|traffic|flight|spacecraft|rocket launch|satellite|storm|wind|bridge|infrastructure|impact|collision/.test(t);
-    if(/energy|power|conservation/.test(s)) return /energy|power|electricity|battery|fuel|gasoline|oil|grid|utility|heat|engine|climate|weather|spacecraft|rocket launch|satellite|athlete|players|sports/.test(t);
-    if(/momentum/.test(s)) return (hasFlightMotionHook(headline) || hasSportsMotionHook(headline) || /vehicle|traffic|collision|transport|sports|spacecraft|rocket launch|satellite|motion|speed|flight|ship|rail/.test(t)) && !isSensitiveHarmHeadline(headline);
-    if(/waves|electricity/.test(s)) return /wave|sound|light|radio|signal|communication|internet|phone|satellite|radar|electric|electricity|battery|grid|power|electronics|semiconductor|broadcast|wireless/.test(t);
-    if(/ethics|responsible use|technology/.test(s)) return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|nuclear|infrastructure|spacecraft|spacex|nasa/.test(t);
-  }
+  if(subject==='psychology') return p.psychology;
+  if(subject==='worldHistory') return p.world && p.history;
+  if(subject==='usHistory') return p.us && p.history;
+  if(subject==='civics') return p.civic;
+  if(subject==='government') return p.government;
+  if(subject==='english') return true;
+  if(['algebra1','geometry','algebra2'].includes(subject)) return p.quantitative;
   return false;
 }
+
+function hasConceptCluster(subject, headline, skill){
+  return conceptProfileFitsTemplate(subject, headline, skill, '');
+}
 function hasScienceHeadlineContext(subject, headline, skill, formula){
-  const t=(headline||'').toLowerCase();
-  const s=((skill||'')+' '+(formula||'')).toLowerCase();
-  if(isScienceBrandFinanceHeadline(headline)) return false;
-  return hasConceptCluster(subject, headline, skill || s);
+  return conceptProfileFitsTemplate(subject, headline, skill, formula);
 }
 function hasPersonalScandalOrCelebrityHook(headline){
   const t=(headline||'').toLowerCase();
@@ -781,7 +1087,7 @@ function hasHumanitiesSkillFit(subject, headline, skill){
   }
 
   if(subject==='psychology') return /stress|behavior|decision|social|survey|mental|health|fear|risk|teen|youth|workplace|school|sleep|media|misinformation|public reaction|poll|attention|memory|emotion|motivation|bias|belief|group/.test(t) || isSensitiveHarmHeadline(headline);
-  if(subject==='health') return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention|nutrition|sleep|exercise|body|heart|lung|brain|immune|respiratory|digestive|endocrine|homeostasis|hydration|blood sugar|diet|obesity|fitness|wellness|public health|access to care|care|medicine/.test(t) || isSensitiveHarmHeadline(headline);
+  if(subject==='health') return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention|nutrition|sleep|exercise|body|heart|lung|brain|immune|respiratory|digestive|endocrine|homeostasis|hydration|blood sugar|diet|fitness|wellness|public health|care|medicine|sports|athlete|trauma|support|counseling/.test(t);
   return false;
 }
 function hasHumanitiesHeadlineContext(subject, headline, skill=''){
@@ -792,24 +1098,29 @@ function isActuallyRelevant(w){
   const h=w.headline||'';
   if(!h) return false;
 
-  if(isSensitiveHarmHeadline(h) && ['physicalScience','physics'].includes(subject) && hasMilitaryScienceEthicsHook(h) && /science, technology, and ethics|scientific description|technology claim|system inputs|engineering design|model, measurement/.test((w.skill||'').toLowerCase())) return true;
+  const p=classifyHeadlineConcepts(h);
+  if(p.financeOnlyScienceBrand && ['physicalScience','physics','lifeScience','biology'].includes(subject)) return false;
+  if(['physicalScience','physics'].includes(subject) && p.civicAcronymOnly) return false;
+  if(['physicalScience','physics'].includes(subject) && p.medicalHealthStory && !(p.motion || p.force || p.energy || p.waves || p.electricity || p.astronomy || p.engineering)) return false;
 
   if(hasSemanticSafetyConflict(w)) return false;
 
   if(isSensitiveHarmHeadline(h)){
     if(['algebra1','geometry','algebra2'].includes(subject)) return false;
-    if(['physicalScience','physics'].includes(subject)) return hasMilitaryScienceEthicsHook(h) && /science, technology, and ethics|scientific description|technology claim|system inputs|engineering design|model, measurement/.test((w.skill||'').toLowerCase());
-    if(['lifeScience','biology'].includes(subject)) return /health|medical|disease|vaccine|public health|environment|ecosystem|wildlife|species/.test(h.toLowerCase()) && /ethic|evidence|responsible/.test((w.skill||'').toLowerCase());
-    return ['english','civics','psychology','government','health','worldHistory','usHistory'].includes(subject) && hasConceptCluster(subject, h, w.skill);
+    if(['physicalScience','physics'].includes(subject)){
+      return sensitiveScienceHeadlineFits(subject, h) && hasMilitaryScienceEthicsHook(h) && /science, technology, and ethics|scientific description|technology claim|system inputs|engineering design|model, measurement|responsible use/.test((w.skill||'').toLowerCase());
+    }
+    if(['lifeScience','biology'].includes(subject)) return sensitiveScienceHeadlineFits(subject, h) && /ethic|evidence|responsible|experimental|public health/.test((w.skill||'').toLowerCase());
+    if(subject==='health') return p.health && conceptProfileFitsTemplate(subject, h, w.skill, w.formula);
+    return ['english','civics','psychology','government','worldHistory','usHistory'].includes(subject) && conceptProfileFitsTemplate(subject, h, w.skill, w.formula);
   }
 
-  if(!hasConceptCluster(subject, h, w.skill)) return false;
+  if(!conceptProfileFitsTemplate(subject, h, w.skill, w.formula)) return false;
   if(!formulaFitsHeadline(w)) return false;
 
+  // Preserve extra math guardrails so math still needs actual quantitative context.
   if(['algebra1','algebra2'].includes(subject)) return mathSkillFitsHeadline(subject, h, w.skill);
   if(subject==='geometry') return hasGeometryHeadlineContext(h, w.skill);
-  if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return hasScienceHeadlineContext(subject, h, w.skill, w.formula);
-  if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject)) return hasHumanitiesHeadlineContext(subject, h, w.skill);
   return true;
 }
 function rotatedHeadlines(headlines, seed){
@@ -830,20 +1141,113 @@ function makeRawWarmupForSubjectHeadline(subject, headline, seed, attempt, theme
 }
 function makeNoRelevantHeadlineCard(subject, headlines){
   const subjectLabel = SUBJECTS[subject]?.label || 'this subject';
-  const h=(headlines&&headlines[0]) || 'No headline available';
+  const checked=(headlines||[]).filter(Boolean).slice(0,6);
+  const h=checked[0] || 'No headline available';
   return {
     subject,
     course:SUBJECTS[subject].label,
     headline:h,
-    eventDesc:`The app checked the available headlines for a defensible ${subjectLabel} connection before generating a task.`,
+    eventDesc:`The app scanned the available headline pool for a defensible ${subjectLabel} connection before generating a task.`,
     formula:'',
     safetyNote:'',
     skill:'no relevant headline found',
     relevance:`The app could not find a headline where a ${subjectLabel} warmup would help students understand the news event. It did not force a weak connection.`,
     relevanceCheck:'Not generated: no available headline passed the subject relevance loop after trying alternate skills and alternate headlines.',
-    problem:`<strong>No ${esc(subjectLabel)} warmup was generated from the current headline set.</strong><br><br>Teacher action: paste a more subject-relevant headline, remove unsuitable headlines, or click <strong>Generate warmups</strong> again after loading different headlines.`,
-    answer:'No answer key is needed because no student task was generated. The correct action is to substitute a better-fitting headline.'
+    problem:`<strong>No ${esc(subjectLabel)} warmup was generated from the current headline set.</strong><br><br>The app checked ${checked.length || 0} likely headline candidate${checked.length===1?'':'s'} for this subject${checked.length?':<br><ul>'+checked.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}<br>Teacher action: paste a more subject-relevant headline, load a larger headline set, or click <strong>Generate warmups</strong> again after adding different headlines. For Physics or Physical Science, use headlines involving calculable motion, force, energy, waves, electricity, heat, materials, astronomy, vehicles, weather, flight, or sports performance.`,
+    answer:'No answer key is needed because no student task was generated. The correct action is to substitute or load a better-fitting headline.'
   };
+}
+function subjectStorylineScore(subject, headline){
+  const p=classifyHeadlineConcepts(headline);
+  if(p.financeOnlyScienceBrand && ['physicalScience','physics','lifeScience','biology'].includes(subject)) return -30;
+  let score=0;
+  if(subject==='physics' || subject==='physicalScience'){
+    const hasHook = subject==='physics' ? hasPhysicsCalculationHook(headline) : hasPhysicalScienceCalculationHook(headline);
+    if(!hasHook) return -80;
+    if(p.astronomy) score += 35;
+    if(p.motion) score += 35;
+    if(p.force) score += 20;
+    if(p.energy) score += 30;
+    if(p.waves || p.electricity) score += 25;
+    if(subject==='physicalScience' && (p.materials || p.chemistry)) score += 25;
+    if(p.sports || p.flight || p.space) score += 15;
+    if(p.sensitiveHarm) score -= 50;
+    return score;
+  }
+  if(subject==='lifeScience' || subject==='biology'){
+    if(p.humanConflict && !(p.disease || p.publicHealth || p.ecosystems)) return -40;
+    if(p.lifeSystems) score += 35;
+    if(p.ecosystems) score += 20;
+    if(p.genetics || p.disease || p.bodySystems) score += 20;
+    if(p.sensitiveHarm) score -= 25;
+    return score;
+  }
+  if(subject==='health'){
+    if(p.health) score += 35;
+    if(p.publicHealth || p.mentalHealth || p.bodySystems || p.nutrition) score += 20;
+    if(p.sensitiveHarm && !p.health && !p.mentalHealth) score -= 25;
+    return score;
+  }
+  if(subject==='psychology'){
+    if(p.psychology) score += 35;
+    if(p.mentalHealth || p.sports) score += 15;
+    return score;
+  }
+  if(subject==='worldHistory'){
+    if(p.world) score += 25;
+    if(p.history) score += 20;
+    return score;
+  }
+  if(subject==='usHistory'){
+    if(p.us) score += 25;
+    if(p.history) score += 20;
+    return score;
+  }
+  if(subject==='civics' || subject==='government'){
+    if(p.civic || p.government) score += 35;
+    return score;
+  }
+  if(subject==='english') return 20;
+  if(['algebra1','geometry','algebra2'].includes(subject)){
+    if(p.quantitative) score += 30;
+    if(p.sports || p.weather || p.motion || p.energy) score += 10;
+    if(p.sensitiveHarm) score -= 40;
+    return score;
+  }
+  return 0;
+}
+function sortHeadlinesForSubject(subject, headlines, seed){
+  return shuffledCopy(headlines, seed+'|storylineShuffle').sort((a,b)=>subjectStorylineScore(subject,b)-subjectStorylineScore(subject,a));
+}
+function hasAnySubjectStoryline(subject, headline){
+  return subjectStorylineScore(subject, headline) > 0;
+}
+
+function shuffledCopy(arr, seed){
+  const out=[...arr];
+  for(let i=out.length-1;i>0;i--){
+    const j=hashString(seed+'|shuffle|'+i) % (i+1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+function scoreWarmupCandidate(w){
+  let score=0;
+  const p=classifyHeadlineConcepts(w.headline||'');
+  const fam=questionScenarioFamily(w);
+  if(!isSensitiveHarmHeadline(w.headline||'')) score += 100;
+  if(w.formula) score += 35;
+  if(/no relevant headline|headline not suitable/.test((w.skill||'').toLowerCase())) score -= 500;
+  if(/ethics|responsible|claim|evidence/.test((w.skill||'').toLowerCase())) score -= 3;
+  if(isSensitiveHarmHeadline(w.headline||'')) score -= 40;
+  if((p.electricity || /battery|electric vehicle|charging/.test((w.headline||'').toLowerCase())) && fam==='wavesElectricity') score += 40;
+  if((p.electricity || /battery|electric vehicle|charging/.test((w.headline||'').toLowerCase())) && fam==='materials') score -= 20;
+  if(p.sports && fam==='motion') score += 20;
+  if(p.astronomy && ['motion','force','energy'].includes(fam)) score += 15;
+  return score;
+}
+function candidateSignature(w){
+  return [w.subject,w.headline,w.skill,(w.problem||'').replace(/<[^>]*>/g,'').slice(0,90)].join('::');
 }
 function getTemplateCount(subject){
   return ({
@@ -854,34 +1258,62 @@ function getTemplateCount(subject){
 }
 
 function generateRelevantWarmup(subject, headlines, seed, theme){
-  const allCandidates=rotatedHeadlines(headlines, seed+subject+'|headlines');
+  const allHeadlines=rotatedHeadlines(headlines, seed+subject+'|headlines');
+  const candidates=sortHeadlinesForSubject(subject, allHeadlines, seed+'|headlinePool');
   const templateCount=getTemplateCount(subject);
-  const attemptsPerHeadline=Math.max(templateCount, 12);
-  const templateStart=hashString(seed+'|templateStart|'+subject) % templateCount;
-  const attemptOrder=[];
-  for(let i=0;i<templateCount;i++) attemptOrder.push((templateStart+i)%templateCount);
-  for(let i=templateCount;i<attemptsPerHeadline;i++) attemptOrder.push(i);
+  const attemptsPerHeadline=Math.max(templateCount, 16);
+  const attemptOrder=shuffledCopy([...Array(attemptsPerHeadline).keys()], seed+'|attemptPool');
 
-  // Concept-first pass: choose a skill/template family, then search the headline pool
-  // for a headline that actually fits that concept. This avoids getting stuck on
-  // the first headline, especially when that headline only supports an ethics fallback.
-  const ordinaryHeadlines=allCandidates.filter(h=>!isSensitiveHarmHeadline(h));
-  const sensitiveHeadlines=allCandidates.filter(h=>isSensitiveHarmHeadline(h));
-  const headlinePasses = ordinaryHeadlines.length ? [ordinaryHeadlines, sensitiveHeadlines] : [sensitiveHeadlines];
-
-  for(const group of headlinePasses){
+  const collectCandidates = (allowStorylineFallback=false) => {
+    const valid=[];
+    const validNonSensitive=[];
+    const validSensitive=[];
     for(const attempt of attemptOrder){
-      for(const headline of group){
+      for(const headline of candidates){
+        // Skip clearly off-subject storylines in fallback too. This is what makes the
+        // app keep looking for a better science/history/health story instead of
+        // reporting rejection on the first weak headline.
+        if(allowStorylineFallback && !hasAnySubjectStoryline(subject, headline)) continue;
+
         const raw=makeRawWarmupForSubjectHeadline(subject, headline, seed, attempt, theme);
-        if(isActuallyRelevant(raw)){
+        let passes=isActuallyRelevant(raw);
+
+        // Second pass: if the subject storyline is strong but the exact keyword-template
+        // check missed it, allow a conceptually appropriate candidate through.
+        if(!passes && allowStorylineFallback && subjectStorylineScore(subject, headline) >= 25){
+          if(!isSensitiveHarmHeadline(headline) || !['algebra1','geometry','algebra2','health','lifeScience','biology'].includes(subject)){
+            passes = hasConceptCluster(subject, headline, raw.skill) || subjectStorylineScore(subject, headline) >= 35;
+          }
+        }
+
+        if(passes){
           const checked=applyRelevanceCheck(raw);
-          if(checked.skill !== 'headline not suitable for this subject') return checked;
+          if(checked.skill !== 'headline not suitable for this subject' && checked.skill !== 'no relevant headline found'){
+            valid.push(checked);
+            if(isSensitiveHarmHeadline(checked.headline||'')) validSensitive.push(checked);
+            else validNonSensitive.push(checked);
+          }
         }
       }
     }
+    return {valid, validNonSensitive, validSensitive};
+  };
+
+  let result=collectCandidates(false);
+  if(!result.valid.length) result=collectCandidates(true);
+
+  const pool = result.validNonSensitive.length ? result.validNonSensitive : result.validSensitive;
+  if(pool.length){
+    const ranked=shuffledCopy(pool, seed+'|poolChoice|'+generationCounter)
+      .sort((a,b)=>scoreWarmupCandidate(b)-scoreWarmupCandidate(a));
+    const lastSig=lastWarmupSignature || '';
+    const nonRepeat=ranked.find(w=>!lastSig.includes(candidateSignature(w).slice(0,60)));
+    return nonRepeat || ranked[0];
   }
 
-  return makeNoRelevantHeadlineCard(subject, allCandidates);
+  const scored = candidates.map(h=>({h, score:subjectStorylineScore(subject,h)})).filter(x=>x.score>0);
+  const checkedHeadlines = scored.length ? scored.map(x=>x.h) : candidates;
+  return makeNoRelevantHeadlineCard(subject, checkedHeadlines);
 }
 
 function subjectsForMode(){
