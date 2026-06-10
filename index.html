@@ -565,6 +565,7 @@ function formulaFitsHeadline(w){
   }
   if(['physicalScience','physics'].includes(w.subject)){
     if(/density/.test(f)) return ['weather','technology','infrastructure','health'].includes(cat) && /material|water|fuel|battery|building|bridge|ship|storm|weather|science|space|energy|vehicle|flight|airport|road|transit|oil|gasoline/.test(t);
+    if(/circuit|voltage|battery/.test(f)) return /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|signal|radio|wave|communication|internet|phone|satellite|radar|utility|blackout|outage/.test(t);
     if(formulaNeedsDirectScienceFit(w)) return ['weather','technology','infrastructure','health'].includes(cat) || /space|rocket|satellite|vehicle|flight|storm|wind|energy|bridge|transit|traffic|ship|machine|engine|power|electric|battery|gasoline|fuel/.test(t);
   }
   return true;
@@ -649,18 +650,61 @@ function hasGeometryHeadlineContext(headline, skill){
 function hasScienceHeadlineContext(subject, headline, skill, formula){
   const t=(headline||'').toLowerCase();
   const s=((skill||'')+' '+(formula||'')).toLowerCase();
+
   if(subject==='lifeScience' || subject==='biology'){
-    if(/population|birth|death|survival|trophic|energy transfer|trait|genetics|probability|evidence|study/.test(s)){
-      return /species|ecosystem|habitat|wildlife|animal|plant|disease|vaccine|medical|health|biology|research|study|climate|wildfire|food|water|environment|pollution|genetic|virus|bacteria|population/.test(t);
+    if(/population|birth|death|survival|trophic|energy transfer|trait|genetics|probability|evidence|study|cells|organ systems|homeostasis|disease transmission|biotechnology|structure and function|ecosystem|habitat|carrying capacity|biotic|abiotic|inherited|learned/.test(s)){
+      return /species|ecosystem|habitat|wildlife|animal|plant|disease|vaccine|medical|health|biology|research|study|climate|wildfire|food|water|environment|pollution|genetic|virus|bacteria|population|cell|organ|body|biotech|agriculture/.test(t);
     }
-    return /species|ecosystem|habitat|disease|vaccine|medical|health|biology|research|climate|food|water|environment|animal|plant/.test(t);
+    return /species|ecosystem|habitat|disease|vaccine|medical|health|biology|research|climate|food|water|environment|animal|plant|cell|organ|biotech|agriculture/.test(t);
   }
-  if(subject==='physicalScience' || subject==='physics'){
-    if(/density|speed|force|work|momentum|potential energy|velocity|f = ma|mgh|energy|waves|circuits|electricity/.test(s)){
-      return /space|rocket|satellite|weather|storm|wind|flight|airport|road|traffic|transit|rail|bridge|ship|vehicle|energy|battery|fuel|gasoline|oil|power|electric|material|building|infrastructure|earthquake|machine|engine|temperature|heat|water/.test(t);
+
+  if(subject==='physicalScience'){
+    // Physical science relevance must be skill-specific. A fuel headline can support energy,
+    // heat, material, or chemical-change prompts, but it should not pass a circuits task.
+    if(/calculate speed|speed = distance|force and motion|force = mass|motion/.test(s)){
+      return /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|space|rocket|satellite|motion|speed|travel|transport/.test(t);
     }
-    return /space|rocket|missile|drone|satellite|radar|aerospace|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid|engineering|system|weapon system|defense system/.test(t);
+    if(/density|materials?|properties|material/.test(s)){
+      return /material|water|fuel|oil|gasoline|battery|building|bridge|ship|storm|weather|science|space|energy|vehicle|construction|infrastructure|chemical|substance/.test(t);
+    }
+    if(/energy transfer|heat transfer|temperature|heat|fuel|gasoline|oil|power|energy/.test(s)){
+      return /energy|fuel|gasoline|oil|power|electricity|heat|temperature|weather|climate|battery|engine|combustion|fire|thermal|utility|grid|prices?/.test(t);
+    }
+    if(/waves|circuits|voltage|battery|electric|series circuit/.test(s)){
+      return /electric|electricity|battery|batteries|grid|power grid|voltage|circuit|electronics|chip|semiconductor|signal|radio|wave|communication|internet|phone|satellite|radar|sensor|utility|blackout|outage/.test(t);
+    }
+    if(/states of matter|chemical and physical change|chemical|physical change/.test(s)){
+      return /chemical|substance|material|water|ice|gas|gasoline|oil|pollution|air|heat|temperature|fuel|reaction|manufacturing|industrial/.test(t);
+    }
+    if(/ethics|engineering/.test(s)){
+      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|chemical|nuclear|infrastructure/.test(t);
+    }
+    return /space|rocket|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
   }
+
+  if(subject==='physics'){
+    // Physics also needs skill-specific relevance so calculations do not attach to weakly related headlines.
+    if(/motion equation|speed|velocity/.test(s)){
+      return /vehicle|traffic|transit|rail|flight|airport|ship|road|storm|wind|weather|space|rocket|satellite|motion|speed|travel|transport/.test(t);
+    }
+    if(/force|acceleration|fields/.test(s)){
+      return /force|acceleration|gravity|magnetic|electric|field|vehicle|traffic|flight|space|rocket|satellite|storm|wind|bridge|infrastructure/.test(t);
+    }
+    if(/energy|power|conservation/.test(s)){
+      return /energy|power|electricity|battery|fuel|gasoline|oil|grid|utility|heat|engine|climate|weather|space|rocket|satellite/.test(t);
+    }
+    if(/momentum/.test(s)){
+      return /vehicle|traffic|collision|transport|sports|space|rocket|satellite|motion|speed|flight|ship|rail/.test(t) && !isSensitiveHarmHeadline(headline);
+    }
+    if(/waves|electricity|wave speed/.test(s)){
+      return /wave|sound|light|radio|signal|communication|internet|phone|satellite|radar|electric|electricity|battery|grid|power|electronics|semiconductor/.test(t);
+    }
+    if(/ethics|responsible use|technology/.test(s)){
+      return /technology|engineering|ai|rocket|missile|drone|satellite|radar|system|weapon system|defense system|energy|nuclear|infrastructure/.test(t);
+    }
+    return /space|rocket|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure|technology|communication|signal|grid/.test(t);
+  }
+
   return false;
 }
 function hasPersonalScandalOrCelebrityHook(headline){
