@@ -136,7 +136,7 @@
           <button id="print" class="gold">Print</button>
         </div>
         <div id="status" class="status"></div>
-        <p class="hint">Browser feed fetching depends on public RSS access and proxy availability. If it fails, paste headlines manually. This design intentionally avoids storing an AI API key in the front-end.</p>
+        <p class="hint">Browser feed fetching now uses multiple feed/proxy attempts and saves the last successful headline set in this browser. If live feeds fail, the app will try cached headlines before asking you to paste headlines manually. This design intentionally avoids storing an AI API key in the front-end.</p>
       </div>
       <div class="panel">
         <label for="subjectMode">Warmup type</label>
@@ -185,7 +185,7 @@
 
     <div class="row print-tools"><button id="showAll" class="secondary">Show all answers</button><button id="hideAll" class="secondary">Hide all answers</button></div>
     <main id="warmups" class="grid" aria-live="polite"></main>
-    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card tells the teacher to choose another headline or click Generate warmups again instead of forcing a weak connection. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, biological death/survival models, or other harm-adjacent quantities when headlines involve violence, death, injury, legal trauma, or other sensitive events. Click Generate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
+    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. Public feed loading uses multiple attempts and a recent local browser cache, but manual headline paste remains the most reliable option when networks or feed providers block requests. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card tells the teacher to choose another headline or click Generate warmups again instead of forcing a weak connection. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, biological death/survival models, or other harm-adjacent quantities when headlines involve violence, death, injury, legal trauma, or other sensitive events. Click Generate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
   </div>
 
 <script>
@@ -559,6 +559,107 @@ function applyRelevanceCheck(w){
   if(!formulaFitsHeadline(w)) return makeRelevanceRedirect(w);
   return {...w, relevanceCheck:'Passed relevance check: the selected skill has a defensible connection to the headline.'};
 }
+
+function textHas(t, re){ return re.test((t||'').toLowerCase()); }
+function hasQuantitativeHeadlineContext(headline){
+  const t=(headline||'').toLowerCase();
+  return /inflation|prices?|cost|budget|funding|loan|tax|jobs|market|stocks?|tariff|trade|sales|spending|economic|rate|percent|percentage|data|survey|poll|vote|election|forecast|index|trend|growth|decline|increase|decrease|traffic|flight|airport|transit|rail|bridge|ship|weather|storm|heat|rain|flood|temperature|climate|energy|gasoline|gas prices?|oil|power|population|study|research|housing|rent|wage|income/.test(t);
+}
+function hasGeometryHeadlineContext(headline, skill){
+  const t=(headline||'').toLowerCase();
+  const s=(skill||'').toLowerCase();
+  if(/line of best fit|association|correlation|predict/.test(s)) return /forecast|trend|data|survey|poll|rate|prices?|inflation|weather|storm|temperature|traffic|flight|market|jobs|growth|decline|increase|decrease|study|research/.test(t);
+  if(/area|volume|proportion|scale|map|model|graph|chart/.test(s)) return /map|area|land|water|building|bridge|road|transit|storm|weather|flood|wildfire|housing|construction|space|satellite|screen|display|graphic|infrastructure|ship|vehicle|material/.test(t);
+  return hasQuantitativeHeadlineContext(headline);
+}
+function hasScienceHeadlineContext(subject, headline, skill, formula){
+  const t=(headline||'').toLowerCase();
+  const s=((skill||'')+' '+(formula||'')).toLowerCase();
+  if(subject==='lifeScience' || subject==='biology'){
+    if(/population|birth|death|survival|trophic|energy transfer|trait|genetics|probability|evidence|study/.test(s)){
+      return /species|ecosystem|habitat|wildlife|animal|plant|disease|vaccine|medical|health|biology|research|study|climate|wildfire|food|water|environment|pollution|genetic|virus|bacteria|population/.test(t);
+    }
+    return /species|ecosystem|habitat|disease|vaccine|medical|health|biology|research|climate|food|water|environment|animal|plant/.test(t);
+  }
+  if(subject==='physicalScience' || subject==='physics'){
+    if(/density|speed|force|work|momentum|potential energy|velocity|f = ma|mgh|energy/.test(s)){
+      return /space|rocket|satellite|weather|storm|wind|flight|airport|road|traffic|transit|rail|bridge|ship|vehicle|energy|battery|fuel|gasoline|oil|power|electric|material|building|infrastructure|earthquake|machine|engine|temperature|heat|water/.test(t);
+    }
+    return /space|rocket|satellite|weather|flight|traffic|bridge|ship|vehicle|energy|battery|fuel|power|electric|material|infrastructure/.test(t);
+  }
+  return false;
+}
+function hasHumanitiesHeadlineContext(subject, headline){
+  const t=(headline||'').toLowerCase();
+  if(subject==='english') return true;
+  if(subject==='civics' || subject==='government') return /election|vote|court|law|policy|congress|president|governor|mayor|city|state|federal|agency|supreme court|bill|funding|budget|border|rights|doj|justice|senate|house|administration/.test(t);
+  if(subject==='usHistory') return /u\.s\.|us |america|american|white house|congress|president|supreme court|doj|federal|state|civil rights|immigration|border|labor|economy|policy|rights|war|veteran/.test(t);
+  if(subject==='worldHistory') return /china|iran|taiwan|israel|gaza|russia|ukraine|europe|asia|africa|global|world|international|foreign|trade|migration|climate|war|conflict|empire|colonial|revolution|treaty|border/.test(t);
+  if(subject==='psychology') return /stress|behavior|decision|social|survey|mental|health|fear|risk|teen|youth|workplace|school|sleep|media|misinformation|public reaction|poll/.test(t) || isSensitiveHarmHeadline(headline);
+  if(subject==='health') return /health|medical|disease|vaccine|hospital|risk|safety|food|water|air|stress|mental|illness|injury|heat|weather|pollution|drug|prevention/.test(t) || isSensitiveHarmHeadline(headline);
+  return true;
+}
+function isActuallyRelevant(w){
+  const subject=w.subject;
+  const h=w.headline||'';
+  if(!h) return false;
+  if(hasSemanticSafetyConflict(w)) return false;
+  if(isSensitiveHarmHeadline(h)){
+    return ['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject);
+  }
+  if(!formulaFitsHeadline(w)) return false;
+  if(['algebra1','algebra2'].includes(subject)) return hasQuantitativeHeadlineContext(h);
+  if(subject==='geometry') return hasGeometryHeadlineContext(h, w.skill);
+  if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return hasScienceHeadlineContext(subject, h, w.skill, w.formula);
+  if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject)) return hasHumanitiesHeadlineContext(subject, h);
+  return true;
+}
+function rotatedHeadlines(headlines, seed){
+  const list=(headlines||[]).filter(Boolean);
+  if(!list.length) return ['Top headline'];
+  const start=hashString(seed)%list.length;
+  return list.slice(start).concat(list.slice(0,start));
+}
+function makeRawWarmupForSubjectHeadline(subject, headline, seed, attempt, theme){
+  const localSeed=seed+'|headline:'+headline+'|attempt:'+attempt;
+  const n=seededNums(localSeed);
+  const eventDesc=describeEvent([headline], themeFrom([headline]));
+  if(['algebra1','geometry','algebra2'].includes(subject)) return makeMathWarmup(subject, [headline], localSeed, n, theme, eventDesc);
+  if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return makeScienceWarmup(subject, [headline], localSeed, n, theme, eventDesc);
+  return makeHumanitiesWarmup(subject, [headline], localSeed, n, theme, eventDesc);
+}
+function makeNoRelevantHeadlineCard(subject, headlines){
+  const subjectLabel = SUBJECTS[subject]?.name || 'this subject';
+  const h=(headlines&&headlines[0]) || 'No headline available';
+  return {
+    subject,
+    course:SUBJECTS[subject].label,
+    headline:h,
+    eventDesc:`The app checked the available headlines for a defensible ${subjectLabel} connection before generating a task.`,
+    formula:'',
+    safetyNote:'',
+    skill:'no relevant headline found',
+    relevance:`The app could not find a headline where a ${subjectLabel} warmup would help students understand the news event. It did not force a weak connection.`,
+    relevanceCheck:'Not generated: no available headline passed the subject relevance loop after trying alternate skills and alternate headlines.',
+    problem:`<strong>No ${esc(subjectLabel)} warmup was generated from the current headline set.</strong><br><br>Teacher action: paste a more subject-relevant headline, remove unsuitable headlines, or click <strong>Generate warmups</strong> again after loading different headlines.`,
+    answer:'No answer key is needed because no student task was generated. The correct action is to substitute a better-fitting headline.'
+  };
+}
+function generateRelevantWarmup(subject, headlines, seed, theme){
+  const candidates=rotatedHeadlines(headlines, seed+subject);
+  const attemptsPerHeadline=12;
+  for(const headline of candidates){
+    for(let attempt=0; attempt<attemptsPerHeadline; attempt++){
+      const raw=makeRawWarmupForSubjectHeadline(subject, headline, seed, attempt, theme);
+      if(isActuallyRelevant(raw)){
+        const checked=applyRelevanceCheck(raw);
+        if(checked.skill !== 'headline not suitable for this subject') return checked;
+      }
+    }
+  }
+  return makeNoRelevantHeadlineCard(subject, candidates);
+}
+
 function subjectsForMode(){
   const mode=document.getElementById('subjectMode').value;
   return SUBJECT_GROUPS[mode] || [mode];
@@ -568,15 +669,8 @@ function makeWarmups(headlines){
   const mode=document.getElementById('subjectMode').value;
   const seed=headlines.join('|') + date + mode + '|regen:' + generationCounter;
   const theme=themeFrom(headlines);
-  const eventDesc=describeEvent(headlines, theme);
   return subjectsForMode().map((subject, index)=>{
-    const localSeed=seed+subject+index;
-    const n=seededNums(localSeed);
-    let w;
-    if(['algebra1','geometry','algebra2'].includes(subject)) w = makeMathWarmup(subject, headlines, localSeed, n, theme, eventDesc);
-    else if(['lifeScience','biology','physicalScience','physics'].includes(subject)) w = makeScienceWarmup(subject, headlines, localSeed, n, theme, eventDesc);
-    else w = makeHumanitiesWarmup(subject, headlines, localSeed, n, theme, eventDesc);
-    return applyRelevanceCheck(w);
+    return generateRelevantWarmup(subject, headlines, seed+'|subjectIndex:'+index, theme);
   });
 }
 
@@ -609,31 +703,155 @@ function renderWarmups(headlines){
 function toggleAnswer(i){const a=document.getElementById(`answer-${i}`); a.style.display = a.style.display==='block'?'none':'block';}
 function escapeHTML(str){return String(str).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c]));}
 function readManual(){return document.getElementById('manualHeadlines').value.split(/\n|\|/).map(s=>s.trim()).filter(Boolean);}
-async function fetchFeed(url){
-  const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  const res = await fetch(proxied, {cache:'no-store'});
-  if(!res.ok) throw new Error('Feed fetch failed');
-  const xml = await res.text();
+const HEADLINE_CACHE_KEY = 'currentEventsWarmupHeadlines.v1';
+const HEADLINE_CACHE_MAX_HOURS = 36;
+
+function cleanHeadline(h){
+  return String(h || '')
+    .replace(/<!\[CDATA\[|\]\]>/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function uniqueHeadlines(items){
+  const seen=new Set();
+  const out=[];
+  for(const raw of items){
+    const h=cleanHeadline(raw);
+    const key=h.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    if(h.length<12 || seen.has(key)) continue;
+    seen.add(key);
+    out.push(h);
+  }
+  return out;
+}
+function saveHeadlineCache(headlines, sourceLabel){
+  try{
+    localStorage.setItem(HEADLINE_CACHE_KEY, JSON.stringify({
+      savedAt:new Date().toISOString(),
+      source:sourceLabel || 'public feeds',
+      headlines:uniqueHeadlines(headlines).slice(0,12)
+    }));
+  }catch(e){ console.warn('Could not save headline cache', e); }
+}
+function loadHeadlineCache(){
+  try{
+    const raw=localStorage.getItem(HEADLINE_CACHE_KEY);
+    if(!raw) return null;
+    const cached=JSON.parse(raw);
+    const ageHours=(Date.now()-Date.parse(cached.savedAt || 0))/(1000*60*60);
+    if(!Number.isFinite(ageHours) || ageHours>HEADLINE_CACHE_MAX_HOURS) return null;
+    const headlines=uniqueHeadlines(cached.headlines || []);
+    if(!headlines.length) return null;
+    return {...cached, headlines, ageHours};
+  }catch(e){
+    console.warn('Could not load headline cache', e);
+    return null;
+  }
+}
+function fetchWithTimeout(url, options={}, timeoutMs=7000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(), timeoutMs);
+  return fetch(url, {...options, signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
+function parseXMLHeadlines(xml){
   const doc = new DOMParser().parseFromString(xml,'text/xml');
-  return [...doc.querySelectorAll('item title, entry title')].map(x=>x.textContent.trim()).filter(Boolean);
+  const parserError=doc.querySelector('parsererror');
+  if(parserError) return [];
+  return [...doc.querySelectorAll('item title, entry title')]
+    .map(x=>x.textContent)
+    .filter(Boolean);
+}
+function parseHTMLHeadlines(html){
+  const doc = new DOMParser().parseFromString(html,'text/html');
+  return [...doc.querySelectorAll('h1,h2,h3,a')]
+    .map(x=>x.textContent)
+    .filter(t=>t && t.trim().length>18 && t.trim().length<160);
+}
+function parseHeadlinePayload(payload){
+  if(Array.isArray(payload)) return uniqueHeadlines(payload);
+  if(payload && typeof payload === 'object'){
+    if(Array.isArray(payload.items)) return uniqueHeadlines(payload.items.map(i=>i.title || i.name || i.headline));
+    if(Array.isArray(payload.headlines)) return uniqueHeadlines(payload.headlines);
+    if(typeof payload.contents === 'string') return parseHeadlinePayload(payload.contents);
+  }
+  const text=String(payload || '');
+  return uniqueHeadlines([...parseXMLHeadlines(text), ...parseHTMLHeadlines(text)]);
+}
+function rssAttemptUrls(feedUrl){
+  const encoded=encodeURIComponent(feedUrl);
+  return [
+    {kind:'rss', url:feedUrl},
+    {kind:'rss', url:`https://api.allorigins.win/raw?url=${encoded}`},
+    {kind:'allorigins-json', url:`https://api.allorigins.win/get?url=${encoded}`},
+    {kind:'rss2json', url:`https://api.rss2json.com/v1/api.json?rss_url=${encoded}`},
+    {kind:'rss', url:`https://api.codetabs.com/v1/proxy/?quest=${encoded}`}
+  ];
+}
+async function fetchFeedThroughAttempt(attempt){
+  const res = await fetchWithTimeout(attempt.url, {cache:'no-store'}, 7500);
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  if(attempt.kind==='rss2json' || attempt.kind==='allorigins-json'){
+    const json=await res.json();
+    return parseHeadlinePayload(json);
+  }
+  const text=await res.text();
+  return parseHeadlinePayload(text);
+}
+async function fetchFeed(url){
+  const attempts=rssAttemptUrls(url).map(a=>
+    fetchFeedThroughAttempt(a).then(headlines=>{
+      if(!headlines.length) throw new Error('No headlines parsed');
+      return headlines;
+    })
+  );
+  return Promise.any(attempts);
+}
+async function fetchOptionalLocalHeadlines(){
+  try{
+    const res=await fetchWithTimeout('data/headlines.json', {cache:'no-store'}, 2500);
+    if(!res.ok) return [];
+    const json=await res.json();
+    return parseHeadlinePayload(json);
+  }catch(e){
+    return [];
+  }
 }
 async function fetchFeeds(){
   const mode=document.getElementById('sourceMode').value;
   const status=document.getElementById('status');
-  status.textContent='Fetching public feeds…';
+  status.textContent='Fetching public feeds with retries…';
   const feeds=FEEDS[mode] || FEEDS.mixed;
+  const settled=await Promise.allSettled([
+    fetchOptionalLocalHeadlines(),
+    ...feeds.map(f=>fetchFeed(f))
+  ]);
   const all=[];
-  for(const f of feeds){
-    try{ all.push(...await fetchFeed(f)); }catch(e){ console.warn('Feed failed', f, e); }
-  }
-  const unique=[...new Set(all)].slice(0,8);
+  let successCount=0;
+  settled.forEach((result, index)=>{
+    if(result.status==='fulfilled' && result.value?.length){
+      all.push(...result.value);
+      successCount++;
+    } else if(index>0){
+      console.warn('Feed failed after retries', feeds[index-1], result.reason);
+    }
+  });
+  const unique=uniqueHeadlines(all).slice(0,8);
   if(unique.length){
+    saveHeadlineCache(unique, mode);
     document.getElementById('manualHeadlines').value=unique.join('\n');
     generationCounter++;
     renderWarmups(unique);
-    status.textContent=`Loaded ${unique.length} headlines. Warmups generated. Click generate again for a different version.`;
+    status.textContent=`Loaded ${unique.length} headlines from ${successCount} source attempt${successCount===1?'':'s'}. Warmups generated. Click Generate warmups again for a different version.`;
+    return;
+  }
+  const cached=loadHeadlineCache();
+  if(cached){
+    document.getElementById('manualHeadlines').value=cached.headlines.join('\n');
+    generationCounter++;
+    renderWarmups(cached.headlines);
+    status.textContent=`Live feed access failed, so the app used cached headlines from about ${Math.round(cached.ageHours)} hour${Math.round(cached.ageHours)===1?'':'s'} ago. Paste fresh headlines manually if needed.`;
   } else {
-    status.textContent='Feed access failed. Paste headlines manually or use sample headlines.';
+    status.textContent='Live feed access failed and no recent cached headlines were available. Paste headlines manually or use sample headlines.';
   }
 }
 function init(){
