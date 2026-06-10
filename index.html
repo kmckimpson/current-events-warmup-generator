@@ -300,7 +300,7 @@ function signedChange(n){return n.d % 2 === 0 ? n.a+n.m : -(n.a+n.m);}
 
 function isSensitiveHarmHeadline(headline){
   const t=(headline||'').toLowerCase();
-  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killings?|killed|dead|deaths?|death toll|death penalty|execution|executed|fatal|wounded|injured|victims?|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
+  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killings?|killed|dead|deaths?|death toll|death penalty|execution|executed|fatal|wounded|injured|victims?|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat|epstein|sex trafficking|sexual exploitation|sexual abuse|infidelities|blackmail|extortion/.test(t);
   const militaryStrike = /airstrike|drone strike|military strike|exchange strikes|rocket system|rocket fire|firing in|border attack|troops?|combat/.test(t);
   const legalTrauma = /death penalty|capital punishment|capital murder|murder charges?|sentencing in .*killings?/.test(t);
   return harmWords || militaryStrike || legalTrauma;
@@ -318,7 +318,7 @@ function hasSemanticSafetyConflict(w){
   return biologyBadFit || physicsBadFit || mathBadFit;
 }
 function describeWarmupAnchor(headline, cat){
-  return `This warmup uses the headline “${headline}.” It passed through a relevance screen as a ${categoryNoun(cat)} before the prompt was shown.`;
+  return `This warmup uses the headline “${headline}.” The app checked the headline against the selected subject before showing this ${categoryNoun(cat)} warmup.`;
 }
 function safetyLabel(headline){
   return isSensitiveHarmHeadline(headline) ? 'Moral filter active: tragedy-sensitive headline' : '';
@@ -557,20 +557,51 @@ function applyRelevanceCheck(w){
     return {...w, relevanceCheck:'Passed relevance check: sensitive headline detected, so harm-based calculations were blocked and the task was redirected.'};
   }
   if(!formulaFitsHeadline(w)) return makeRelevanceRedirect(w);
-  return {...w, relevanceCheck:'Passed relevance check: the selected skill has a defensible connection to the headline.'};
+  return {...w, relevanceCheck:'Passed relevance check: the selected skill directly helps interpret a measurable or discipline-specific part of the headline.'};
 }
 
 function textHas(t, re){ return re.test((t||'').toLowerCase()); }
+function hasExplicitNumberSignal(headline){
+  const t=(headline||'').toLowerCase();
+  return /\d|%|\$|million|billion|trillion|thousand|percent|percentage|rate|ratio|count|total|number|amount/.test(t);
+}
 function hasQuantitativeHeadlineContext(headline){
   const t=(headline||'').toLowerCase();
-  return /inflation|prices?|cost|budget|funding|loan|tax|jobs|market|stocks?|tariff|trade|sales|spending|economic|rate|percent|percentage|data|survey|poll|vote|election|forecast|index|trend|growth|decline|increase|decrease|traffic|flight|airport|transit|rail|bridge|ship|weather|storm|heat|rain|flood|temperature|climate|energy|gasoline|gas prices?|oil|power|population|study|research|housing|rent|wage|income/.test(t);
+  if(isSensitiveHarmHeadline(headline)) return false;
+  return hasExplicitNumberSignal(t) || /inflation|prices?|cost|budget|funding|loan|debt|tax|jobs|employment|unemployment|market|stocks?|tariff|trade|sales|spending|economic|wages?|income|rent|housing|gasoline|gas prices?|oil|power bill|energy prices?|poll|survey|forecast|index|trend|growth|decline|increase|decrease|traffic|flight delays?|airport delays?|transit ridership|weather|storm totals?|heat|rainfall|flood level|temperature|climate data|population|study finds|research shows/.test(t);
+}
+function mathSkillFitsHeadline(subject, headline, skill){
+  const t=(headline||'').toLowerCase();
+  const s=(skill||'').toLowerCase();
+  if(isSensitiveHarmHeadline(headline)) return false;
+
+  // Algebra should only use headlines with real quantitative hooks: money, rates, counts, trends, polls, measurements, travel/weather quantities, or explicit numbers.
+  if(subject==='algebra1'){
+    if(!hasQuantitativeHeadlineContext(headline)) return false;
+    if(/ratio/.test(s)) return /\d|%|percent|ratio|share|portion|poll|survey|vote|budget|funding|spending|cost|prices?|jobs|population|group|total|count|number/.test(t);
+    if(/slope/.test(s)) return /trend|increase|decrease|growth|decline|forecast|rate|over time|days?|weeks?|months?|prices?|inflation|temperature|rain|traffic|jobs|market|poll|survey/.test(t);
+    if(/equation|variables|chart/.test(s)) return true;
+    return false;
+  }
+
+  // Algebra 2 needs a model-worthy headline, not merely a public story.
+  if(subject==='algebra2'){
+    if(!hasQuantitativeHeadlineContext(headline)) return false;
+    if(/function|quadratic|regression/.test(s)) return /forecast|trend|index|growth|decline|increase|decrease|prices?|inflation|market|jobs|temperature|weather|traffic|population|study|research|poll|survey|over time|days?|weeks?|months?/.test(t);
+    if(/systems|multistep|equations?/.test(s)) return /budget|funding|cost|prices?|loan|tax|spending|wage|income|rent|housing|sales|energy|gasoline|jobs|trade/.test(t) || hasExplicitNumberSignal(t);
+    return false;
+  }
+
+  return false;
 }
 function hasGeometryHeadlineContext(headline, skill){
   const t=(headline||'').toLowerCase();
   const s=(skill||'').toLowerCase();
-  if(/line of best fit|association|correlation|predict/.test(s)) return /forecast|trend|data|survey|poll|rate|prices?|inflation|weather|storm|temperature|traffic|flight|market|jobs|growth|decline|increase|decrease|study|research/.test(t);
-  if(/area|volume|proportion|scale|map|model|graph|chart/.test(s)) return /map|area|land|water|building|bridge|road|transit|storm|weather|flood|wildfire|housing|construction|space|satellite|screen|display|graphic|infrastructure|ship|vehicle|material/.test(t);
-  return hasQuantitativeHeadlineContext(headline);
+  if(isSensitiveHarmHeadline(headline)) return false;
+  if(/line of best fit|association|correlation|predict/.test(s)) return /forecast|trend|data|survey|poll|rate|prices?|inflation|weather|storm|temperature|traffic|flight|market|jobs|growth|decline|increase|decrease|study|research|over time/.test(t);
+  if(/area|volume/.test(s)) return /area|land|water|building|bridge|road|transit|storm|weather|flood|wildfire|housing|construction|space|satellite|screen|display|graphic|infrastructure|ship|vehicle|material|map/.test(t);
+  if(/proportion|scale/.test(s)) return /map|scale|model|image|graphic|chart|poll|survey|budget|funding|spending|population|distance|area|infrastructure|construction|storm|weather|satellite|space/.test(t);
+  return false;
 }
 function hasScienceHeadlineContext(subject, headline, skill, formula){
   const t=(headline||'').toLowerCase();
@@ -608,7 +639,7 @@ function isActuallyRelevant(w){
     return ['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject);
   }
   if(!formulaFitsHeadline(w)) return false;
-  if(['algebra1','algebra2'].includes(subject)) return hasQuantitativeHeadlineContext(h);
+  if(['algebra1','algebra2'].includes(subject)) return mathSkillFitsHeadline(subject, h, w.skill);
   if(subject==='geometry') return hasGeometryHeadlineContext(h, w.skill);
   if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return hasScienceHeadlineContext(subject, h, w.skill, w.formula);
   if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(subject)) return hasHumanitiesHeadlineContext(subject, h);
@@ -629,7 +660,7 @@ function makeRawWarmupForSubjectHeadline(subject, headline, seed, attempt, theme
   return makeHumanitiesWarmup(subject, [headline], localSeed, n, theme, eventDesc);
 }
 function makeNoRelevantHeadlineCard(subject, headlines){
-  const subjectLabel = SUBJECTS[subject]?.name || 'this subject';
+  const subjectLabel = SUBJECTS[subject]?.label || 'this subject';
   const h=(headlines&&headlines[0]) || 'No headline available';
   return {
     subject,
