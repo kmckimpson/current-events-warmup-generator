@@ -131,7 +131,7 @@
         <textarea id="manualHeadlines" placeholder="Paste 3–8 headlines here, one per line. Or use the feed button."></textarea>
         <div class="row">
           <button id="fetchFeeds" class="teal">Fetch public RSS feeds</button>
-          <button id="generate">Generate / regenerate warmups</button>
+          <button id="generate">Generate warmups</button>
           <button id="sample" class="secondary">Use sample headlines</button>
           <button id="print" class="gold">Print</button>
         </div>
@@ -185,7 +185,7 @@
 
     <div class="row print-tools"><button id="showAll" class="secondary">Show all answers</button><button id="hideAll" class="secondary">Hide all answers</button></div>
     <main id="warmups" class="grid" aria-live="polite"></main>
-    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card is redirected to a safer relevance/evidence task instead. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, or other harm-based quantities when headlines involve violence, death, injury, or trauma. Click Generate / regenerate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
+    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A relevance check screens each generated card before it appears. If a formula or task does not have a defensible connection to the selected headline, the card tells the teacher to choose another headline or click Generate warmups again instead of forcing a weak connection. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, biological death/survival models, or other harm-adjacent quantities when headlines involve violence, death, injury, legal trauma, or other sensitive events. Click Generate warmups again to get a different version when a prompt is not a good fit. Edit any number, claim, or framing before printing when precision matters.</p>
   </div>
 
 <script>
@@ -300,9 +300,22 @@ function signedChange(n){return n.d % 2 === 0 ? n.a+n.m : -(n.a+n.m);}
 
 function isSensitiveHarmHeadline(headline){
   const t=(headline||'').toLowerCase();
-  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killed|dead|death toll|fatal|wounded|injured|victim|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
+  const harmWords = /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killings?|killed|dead|deaths?|death toll|death penalty|execution|executed|fatal|wounded|injured|victims?|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
   const militaryStrike = /airstrike|drone strike|military strike|exchange strikes|rocket system|rocket fire|firing in|border attack|troops?|combat/.test(t);
-  return harmWords || militaryStrike;
+  const legalTrauma = /death penalty|capital punishment|capital murder|murder charges?|sentencing in .*killings?/.test(t);
+  return harmWords || militaryStrike || legalTrauma;
+}
+
+function hasSemanticSafetyConflict(w){
+  const t=((w.headline||'')+' '+(w.eventDesc||'')).toLowerCase();
+  const prompt=((w.formula||'')+' '+(w.problem||'')+' '+(w.skill||'')).toLowerCase();
+  const harmContext = /killings?|killed|murder|homicide|death penalty|execution|dead|deaths?|victims?|fatal|injured|wounded|shooting|attack|assault|war|strike/.test(t);
+  if(!harmContext) return false;
+
+  const biologyBadFit = ['lifeScience','biology'].includes(w.subject) && /population change|births?|deaths?|survival|mortality|organisms? (move|die)|disease spread|risk factor|health outcomes?/.test(prompt);
+  const physicsBadFit = ['physicalScience','physics'].includes(w.subject) && /speed|velocity|force|energy|momentum|work|impact|projectile|motion|distance|acceleration/.test(prompt);
+  const mathBadFit = ['algebra1','geometry','algebra2'].includes(w.subject) && /rate of harm|death rate|casualt|injur|victim|killed|deaths?/.test(prompt);
+  return biologyBadFit || physicsBadFit || mathBadFit;
 }
 function describeWarmupAnchor(headline, cat){
   return `This warmup uses the headline “${headline}.” It passed through a relevance screen as a ${categoryNoun(cat)} before the prompt was shown.`;
@@ -517,29 +530,29 @@ function formulaFitsHeadline(w){
   return true;
 }
 function makeRelevanceRedirect(w){
-  const cat=headlineCategory(w.headline||'');
-  const base={...w, formula:'', safetyNote:w.safetyNote||'', relevanceCheck:'Redirected by relevance check: the first generated task used a formula or scenario that was not clearly connected to this headline.'};
-  if(['physicalScience','physics'].includes(w.subject)){
-    return {...base,
-      skill:'judge whether a physical-science model fits a headline',
-      relevance:'Physical science is useful when a headline clearly involves matter, energy, motion, forces, waves, or measurement. When that connection is weak, the better scientific skill is deciding what evidence or context would be needed before modeling.',
-      problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app rejected the first generated formula problem because the science connection was too weak or too risky.<br><br>1. Name one physical-science concept that <strong>could</strong> be relevant only if the article provided more information.<br>2. Name one measurement or piece of evidence you would need before using a formula.<br>3. Explain why making up a calculation would weaken the connection to the news event.`,
-      answer:'A strong answer names a possible concept such as energy, materials, speed, density, waves, or forces; asks for a real measurement such as distance, time, mass, volume, temperature, or energy use; and explains that invented numbers can make the warmup feel fake or misleading.'};
-  }
-  if(['lifeScience','biology'].includes(w.subject)){
-    return {...base,
-      skill:'judge whether a biology model fits a headline',
-      relevance:'Biology models are strongest when the headline actually involves living systems, health evidence, ecosystems, organisms, inheritance, or environmental change. When the connection is weak, students can practice deciding what biological evidence would be needed.',
-      problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app rejected the first generated biology problem because the connection to living systems was not strong enough.<br><br>1. What biology concept might connect to this story only with more evidence?<br>2. What data would you need before turning it into a biology warmup?<br>3. Write one sentence explaining why relevance matters in science tasks.`,
-      answer:'A strong answer asks for actual biological evidence, such as organism data, health outcomes, ecosystem effects, experimental results, or population data, and explains that relevance keeps science from becoming random arithmetic.'};
-  }
-  return {...base,
-    skill:'check task relevance before solving',
-    relevance:'A useful warmup should make the skill feel connected to the headline, not pasted onto it. This card asks students to evaluate whether the task and event actually fit.',
-    problem:`Headline: <strong>${esc(w.headline)}</strong><br><br>The app flagged the first generated task as a weak match. Write:<br>1. The subject skill that could fit this headline best.<br>2. One detail from the headline that supports that choice.<br>3. One task type that would feel forced or inappropriate here.`,
-    answer:'A strong answer names a skill supported by the headline, cites a specific headline detail, and rejects a task type that would feel arbitrary, insensitive, or disconnected.'};
+  const subjectLabel = SUBJECTS[w.subject]?.name || 'this subject';
+  const base={...w,
+    formula:'',
+    safetyNote:w.safetyNote||'',
+    skill:'headline not suitable for this subject',
+    relevance:`The relevance check could not find a clear, responsible connection between this headline and ${subjectLabel}. A warmup should not force a subject skill onto a story just because the headline is current.`,
+    relevanceCheck:'Not generated: the selected headline did not pass the subject relevance check.',
+    problem:`Headline: <strong>${esc(w.headline)}</strong><br><br><strong>No ${esc(subjectLabel)} warmup was generated for this headline.</strong><br><br>This story may be important, but the app could not make an honest subject connection without forcing the task. Choose a different headline, paste a more subject-relevant headline, or click <strong>Generate warmups</strong> again to try another version.`,
+    answer:'No answer key is needed because the app did not generate a student task. The correct teacher action is to choose a better-fitting headline or regenerate.'
+  };
+  return base;
 }
 function applyRelevanceCheck(w){
+  if(hasSemanticSafetyConflict(w)){
+    const base={...w, formula:'', safetyNote:'Moral filter active: the headline involves violence, death, injury, or legal trauma. The first generated task had unsafe semantic overlap with harm-related concepts, so it was redirected.'};
+    if(['lifeScience','biology','physicalScience','physics'].includes(w.subject)){
+      return makeSensitiveScienceWarmup(w.subject, w.headline, base);
+    }
+    if(['english','worldHistory','civics','psychology','usHistory','government','health'].includes(w.subject)){
+      return makeSensitiveHumanitiesWarmup(w.subject, w.headline, base);
+    }
+    return makeSensitiveMathWarmup(w.subject, w.headline, base);
+  }
   if(w.safetyNote){
     return {...w, relevanceCheck:'Passed relevance check: sensitive headline detected, so harm-based calculations were blocked and the task was redirected.'};
   }
