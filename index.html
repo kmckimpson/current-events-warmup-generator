@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily News Warmups</title>
+  <style>
+    :root{
+      --ink:#172033;
+      --muted:#637083;
+      --paper:#ffffff;
+      --bg:#eef4f8;
+      --line:#d6e0ea;
+      --blue:#1f5f8b;
+      --teal:#2f8f83;
+      --gold:#f2b84b;
+      --coral:#e76f51;
+      --violet:#6d5bd0;
+      --plum:#8e477d;
+      --green:#3d8b55;
+      --slate:#445166;
+      --soft-blue:#dbeefa;
+      --soft-teal:#dff4ef;
+      --soft-gold:#fff0c9;
+      --shadow:0 16px 40px rgba(23,32,51,.12);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--ink);
+      background:linear-gradient(135deg,#eaf3f9 0%,#f7fbfc 55%,#fff7e7 100%);
+      line-height:1.45;
+    }
+    .wrap{max-width:1120px;margin:0 auto;padding:24px}
+    header{
+      position:relative;overflow:hidden;border-radius:28px;background:linear-gradient(135deg,var(--blue),#15354f 62%,#2a7f75);
+      color:white;padding:30px;box-shadow:var(--shadow);margin-bottom:20px;
+    }
+    header:after{content:"";position:absolute;right:-90px;top:-90px;width:260px;height:260px;border-radius:50%;background:rgba(242,184,75,.26)}
+    header:before{content:"";position:absolute;left:-70px;bottom:-110px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.10)}
+    .kicker{text-transform:uppercase;letter-spacing:.16em;font-weight:800;font-size:12px;opacity:.9}
+    h1{margin:.25rem 0 .4rem;font-size:clamp(30px,5vw,54px);line-height:1;font-weight:900}
+    .subtitle{font-size:18px;max-width:780px;color:#e8f6ff;margin:0}
+    .controls{
+      display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-bottom:18px;
+    }
+    .panel,.warmup,.news-card{
+      background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border:1px solid rgba(214,224,234,.9);
+      border-radius:var(--radius);box-shadow:0 8px 20px rgba(23,32,51,.07);
+    }
+    .panel{padding:18px}
+    label{display:block;font-weight:800;margin-bottom:8px}
+    textarea,input,select{
+      width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;color:var(--ink);background:white;
+    }
+    textarea{min-height:128px;resize:vertical}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+    button{
+      border:0;border-radius:999px;padding:11px 16px;font-weight:900;letter-spacing:.01em;cursor:pointer;color:white;background:var(--blue);
+      box-shadow:0 6px 14px rgba(31,95,139,.22);
+    }
+    button.secondary{background:#445166} button.teal{background:var(--teal)} button.gold{background:#bd7a11}
+    button:hover{filter:brightness(.96);transform:translateY(-1px)}
+    .hint{color:var(--muted);font-size:13px;margin-top:9px}
+    .status{font-weight:800;color:var(--blue);font-size:14px;margin-top:10px;min-height:20px}
+    .news-card{padding:16px;margin-bottom:18px}
+    .news-card h2,.section-title{margin:0 0 10px;font-size:20px}
+    .headline-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+    .headline-list li{padding:10px 12px;background:#f6f9fb;border:1px solid var(--line);border-radius:12px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .warmup{overflow:hidden;display:flex;flex-direction:column;min-height:560px}
+    .band{height:10px;background:var(--blue)}
+    .warmup.math-geometry .band,.warmup.civics .band{background:var(--teal)}
+    .warmup.math-algebra2 .band,.warmup.us-history .band{background:var(--coral)}
+    .warmup.english .band,.warmup.government .band{background:var(--violet)}
+    .warmup.world-history .band{background:var(--gold)}
+    .warmup.psychology .band{background:var(--plum)}
+    .warmup.health .band{background:var(--green)}
+    .warmup.life-science .band{background:#5f9f3f}
+    .warmup.biology .band{background:#26735d}
+    .warmup.physical-science .band{background:#4b79a1}
+    .warmup.physics .band{background:#334e9a}
+    .warmup-body{padding:18px;display:flex;flex-direction:column;gap:12px;flex:1}
+    .course{font-size:22px;margin:0;font-weight:950;letter-spacing:-.02em}
+    .tag{display:inline-flex;align-self:flex-start;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;background:var(--soft-blue);color:var(--blue)}
+    .warmup.math-geometry .tag,.warmup.civics .tag{background:var(--soft-teal);color:var(--teal)}
+    .warmup.math-algebra2 .tag,.warmup.us-history .tag{background:#ffe4dd;color:#a8452f}
+    .warmup.english .tag,.warmup.government .tag{background:#ebe6ff;color:#5744b5}
+    .warmup.world-history .tag{background:var(--soft-gold);color:#8b5a07}
+    .warmup.psychology .tag{background:#f6e4f1;color:#783568}
+    .warmup.health .tag{background:#e4f3e9;color:#2d6b41}
+    .warmup.life-science .tag{background:#edf7e8;color:#42722c}
+    .warmup.biology .tag{background:#e3f4ee;color:#1f5c4a}
+    .warmup.physical-science .tag{background:#e5eef7;color:#355d7d}
+    .warmup.physics .tag{background:#e8ebfb;color:#293f87}
+    .mini-title{font-weight:900;margin-bottom:3px;color:#263248}
+    .text-block{font-size:15px;color:#263248}
+    .problem{padding:14px;border-radius:16px;background:#fbfcfe;border:1px solid var(--line);font-size:16px}
+    .formula{padding:10px 12px;border-radius:14px;background:#fffaf0;border:1px solid #edd8a2;font-weight:800;font-size:15px}
+    .safety-note{padding:10px 12px;border-radius:14px;background:#fff4f4;border:1px solid #f0c7c7;color:#743434;font-weight:800;font-size:14px}
+    .answer{display:none;margin-top:10px;padding:12px;border-radius:14px;background:#f3f7ea;border:1px solid #d9e9be;color:#26350f}
+    .data-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px;background:white;border-radius:10px;overflow:hidden}
+    .data-table th,.data-table td{border:1px solid var(--line);padding:6px;text-align:center}
+    .data-table th{background:#eef4f8}
+    .footer-note{margin:22px 0;color:var(--muted);font-size:13px}
+    .print-tools{justify-content:flex-end}
+    code{background:#f1f5f9;border:1px solid #dce4ee;border-radius:6px;padding:1px 4px}
+    @media (max-width:900px){.controls,.grid{grid-template-columns:1fr}.warmup{min-height:auto}}
+    @media print{
+      body{background:white}.wrap{max-width:none;padding:0}.controls,.print-tools,.footer-note,.status,.hint{display:none!important}
+      header{box-shadow:none;border-radius:0;padding:18px 20px;margin-bottom:10px;color:white;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .news-card,.warmup{box-shadow:none;break-inside:avoid;background:white}.grid{grid-template-columns:repeat(3,1fr);gap:10px}.warmup{min-height:auto}.warmup-body{padding:12px}.answer{display:none!important}
+      button{display:none}.course{font-size:18px}.text-block,.problem{font-size:12.5px}.tag{font-size:10px}.headline-list li{font-size:12px;padding:6px}.data-table{font-size:11px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="kicker">Current Events • Warmups • High School Skills</div>
+      <h1>Daily News Warmups</h1>
+      <p class="subtitle">Generate printable high-school warmups from today’s headlines. Use the math set, a single subject, the humanities/social-studies/health set, the science set, or all subjects at once.</p>
+    </header>
+
+    <section class="controls" aria-label="controls">
+      <div class="panel">
+        <label for="manualHeadlines">Headlines</label>
+        <textarea id="manualHeadlines" placeholder="Paste 3–8 headlines here, one per line. Or use the feed button."></textarea>
+        <div class="row">
+          <button id="fetchFeeds" class="teal">Fetch public RSS feeds</button>
+          <button id="generate">Generate warmups</button>
+          <button id="sample" class="secondary">Use sample headlines</button>
+          <button id="print" class="gold">Print</button>
+        </div>
+        <div id="status" class="status"></div>
+        <p class="hint">Browser feed fetching depends on public RSS access and proxy availability. If it fails, paste headlines manually. This design intentionally avoids storing an AI API key in the front-end.</p>
+      </div>
+      <div class="panel">
+        <label for="subjectMode">Warmup type</label>
+        <select id="subjectMode">
+          <option value="math-set">Math set: Algebra 1, Geometry, Algebra 2</option>
+          <option value="humanities-set">Humanities/social-studies/health set: English, World History, Civics, Psychology, US History, Government, Health</option>
+          <option value="science-set">Science set: Life Science, Biology, Physical Science, Physics</option>
+          <option value="all-subjects">All subjects</option>
+          <option value="algebra1">Algebra 1</option>
+          <option value="geometry">Geometry</option>
+          <option value="algebra2">Algebra 2</option>
+          <option value="english">High School English</option>
+          <option value="worldHistory">World History</option>
+          <option value="civics">Civics</option>
+          <option value="psychology">Psychology</option>
+          <option value="usHistory">US History</option>
+          <option value="government">Government</option>
+          <option value="health">Health</option>
+          <option value="lifeScience">Life Science / Middle School Biology</option>
+          <option value="biology">Biology / High School Biology</option>
+          <option value="physicalScience">Physical Science / Middle School Physics</option>
+          <option value="physics">Physics / High School Physics</option>
+        </select>
+        <div class="row">
+          <div style="flex:1;min-width:180px">
+            <label for="sourceMode">News source mode</label>
+            <select id="sourceMode">
+              <option value="mixed">Mixed public feeds</option>
+              <option value="cnn">CNN-style top stories feed attempt</option>
+              <option value="npr">NPR feed only</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:170px">
+            <label for="dateSeed">Date seed</label>
+            <input id="dateSeed" type="date" />
+          </div>
+        </div>
+        <p class="hint"><strong>Agent mode:</strong> add <code>?headlines=</code> plus URL-encoded headlines separated by <code>|</code>. Optional: add <code>&subject=english</code>, <code>&subject=humanities-set</code>, or <code>&subject=all-subjects</code>.</p>
+      </div>
+    </section>
+
+    <section class="news-card">
+      <h2>News anchor</h2>
+      <ul id="headlineList" class="headline-list"><li>No headlines loaded yet.</li></ul>
+    </section>
+
+    <div class="row print-tools"><button id="showAll" class="secondary">Show all answers</button><button id="hideAll" class="secondary">Hide all answers</button></div>
+    <main id="warmups" class="grid" aria-live="polite"></main>
+    <p class="footer-note">Teacher note: The numeric details, formulas, and classroom scenarios are warmup-friendly approximations generated from the headline set, not claims of exact news data. A moral filter blocks calculations about weapons, casualties, injury rates, attack mechanics, or other harm-based quantities when headlines involve violence, death, injury, or trauma. Edit any number, claim, or framing before printing when precision matters.</p>
+  </div>
+
+<script>
+const FEEDS = {
+  mixed: [
+    'https://feeds.npr.org/1001/rss.xml',
+    'https://feeds.nbcnews.com/nbcnews/public/news',
+    'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml'
+  ],
+  cnn: [
+    'http://rss.cnn.com/rss/cnn_topstories.rss',
+    'https://feeds.npr.org/1001/rss.xml'
+  ],
+  npr: ['https://feeds.npr.org/1001/rss.xml']
+};
+
+const SAMPLE_HEADLINES = [
+  'Severe storms disrupt travel across several states',
+  'New climate report shows rising costs for coastal cities',
+  'Tech companies announce major investment in AI data centers',
+  'Public health officials track changes in respiratory illness rates',
+  'Markets respond after new economic forecast is released'
+];
+
+const SKILLS = {
+  algebra1: ['solve a two-step equation','interpret slope','calculate and interpret a ratio','identify variables in a situation','interpret a simple chart'],
+  geometry: ['compare areas','calculate volume','interpret correlation','use a line of best fit','calculate and interpret proportions'],
+  algebra2: ['evaluate a function','solve a system of equations','interpret a quadratic model','solve a multistep equation','interpret variables in an equation'],
+  english: ['identify claim and evidence','analyze tone','revise for precision','evaluate source framing','write a concise summary'],
+  worldHistory: ['compare historical patterns','identify cause and effect','analyze continuity and change','connect geography to events','evaluate historical context'],
+  civics: ['identify civic institutions','connect rights and responsibilities','analyze policy impact','distinguish fact from opinion','evaluate public decision-making'],
+  psychology: ['identify cognitive bias','apply a psychology concept','interpret behavior and context','distinguish correlation from causation','analyze stress and decision-making'],
+  usHistory: ['connect current events to historical context','compare past and present policy debates','identify continuity and change','analyze cause and effect','use evidence to support a historical claim'],
+  government: ['identify branches and powers','analyze checks and balances','connect federalism to policy','interpret constitutional principles','evaluate public authority'],
+  health: ['identify risk and protective factors','interpret public health information','connect behavior to health outcomes','evaluate health claims','analyze prevention and decision-making'],
+  lifeScience: ['interpret ecosystem relationships','compare structures and functions','analyze adaptation and survival','trace matter and energy flow','interpret population change'],
+  biology: ['analyze experimental evidence','interpret genetic probability','connect structure and function','interpret population models','analyze feedback in body systems'],
+  physicalScience: ['calculate speed','interpret force and motion','compare energy transfer','use density to identify materials','interpret waves or circuits'],
+  physics: ['apply a motion equation','interpret force and acceleration','calculate energy or power','analyze momentum','interpret waves or electricity']
+};
+
+const SUBJECTS = {
+  algebra1:{label:'Algebra 1', cls:'math-algebra1'},
+  geometry:{label:'Geometry', cls:'math-geometry'},
+  algebra2:{label:'Algebra 2', cls:'math-algebra2'},
+  english:{label:'High School English', cls:'english'},
+  worldHistory:{label:'World History', cls:'world-history'},
+  civics:{label:'Civics', cls:'civics'},
+  psychology:{label:'Psychology', cls:'psychology'},
+  usHistory:{label:'US History', cls:'us-history'},
+  government:{label:'Government', cls:'government'},
+  health:{label:'Health', cls:'health'},
+  lifeScience:{label:'Life Science / Middle School Biology', cls:'life-science'},
+  biology:{label:'Biology / High School Biology', cls:'biology'},
+  physicalScience:{label:'Physical Science / Middle School Physics', cls:'physical-science'},
+  physics:{label:'Physics / High School Physics', cls:'physics'}
+};
+
+const SUBJECT_GROUPS = {
+  'math-set':['algebra1','geometry','algebra2'],
+  'humanities-set':['english','worldHistory','civics','psychology','usHistory','government','health'],
+  'science-set':['lifeScience','biology','physicalScience','physics'],
+  'all-subjects':['algebra1','geometry','algebra2','english','worldHistory','civics','psychology','usHistory','government','health','lifeScience','biology','physicalScience','physics']
+};
+
+function hashString(str){let h=2166136261; for(let i=0;i<str.length;i++){h^=str.charCodeAt(i); h+=(h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);} return Math.abs(h>>>0);}
+function seededNums(seed){const h=hashString(seed); return {
+  a: 2 + (h % 7), b: 5 + (Math.floor(h/7)%16), c: 20 + (Math.floor(h/19)%55),
+  d: 3 + (Math.floor(h/31)%9), e: 8 + (Math.floor(h/43)%20), f: 40 + (Math.floor(h/53)%80),
+  g: 6 + (Math.floor(h/71)%15), k: 10 + (Math.floor(h/89)%30), m: 2 + (Math.floor(h/107)%6),
+  p: 30 + (Math.floor(h/127)%45), q: 4 + (Math.floor(h/149)%12)
+};}
+function pick(arr, seed){return arr[hashString(seed)%arr.length];}
+function themeFrom(headlines){
+  const text=headlines.join(' ').toLowerCase();
+  const map=[
+    ['weather and climate',/storm|weather|hurricane|heat|rain|flood|snow|climate|wildfire/],
+    ['the economy',/market|economy|prices|inflation|jobs|forecast|cost|budget|interest/],
+    ['technology',/tech|ai|data|cyber|software|chip|robot|app|internet/],
+    ['health and science',/health|hospital|illness|disease|vaccine|medical|respiratory|science|biology|species|energy|space|physics|research/],
+    ['travel and infrastructure',/travel|flight|airport|road|traffic|transit|rail|bridge/],
+    ['civic life and public policy',/election|court|law|policy|congress|president|governor|mayor|city/]
+  ];
+  const found=map.find(([name,re])=>re.test(text));
+  return found?found[0]:'current events';
+}
+function describeEvent(headlines, theme){
+  const short=headlines.slice(0,3).map(h=>`“${h}”`).join('; ');
+  return `Today’s warmup is anchored in ${theme} coverage, especially ${short}.`;
+}
+function tableHTML(headers, rows){return `<table class="data-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
+function esc(str){return escapeHTML(str);}
+
+
+function headlineCategory(headline){
+  const t=(headline||'').toLowerCase();
+  if(/storm|weather|hurricane|heat|rain|flood|snow|climate|wildfire|coastal/.test(t)) return 'weather';
+  if(/market|economy|prices|inflation|jobs|forecast|cost|budget|interest|tariff|trade/.test(t)) return 'economy';
+  if(/tech|ai|data|cyber|software|chip|robot|app|internet|phone|space/.test(t)) return 'technology';
+  if(/health|hospital|illness|disease|vaccine|medical|respiratory|science|biology|species|research/.test(t)) return 'health';
+  if(/travel|flight|airport|road|traffic|transit|rail|bridge|ship/.test(t)) return 'infrastructure';
+  if(/election|court|law|policy|congress|president|governor|mayor|city|vote/.test(t)) return 'civic';
+  return 'general';
+}
+function categoryNoun(cat){return ({weather:'weather report', economy:'economic report', technology:'technology update', health:'public health report', infrastructure:'travel or infrastructure update', civic:'public policy story', general:'news story'})[cat] || 'news story';}
+function selectHeadline(headlines, seed){return headlines[hashString(seed)%Math.max(headlines.length,1)] || 'Top headline';}
+function percent(num, den){return Math.round((num/den)*100);}
+function trendWord(n){return n.d % 2 === 0 ? 'increased' : 'decreased';}
+function signedChange(n){return n.d % 2 === 0 ? n.a+n.m : -(n.a+n.m);}
+
+
+function isSensitiveHarmHeadline(headline){
+  const t=(headline||'').toLowerCase();
+  return /shooting|shooter|gunman|gunfire|bullet|firearm|massacre|killed|dead|death toll|fatal|wounded|injured|victim|casualt|murder|homicide|suicide|self-harm|attack|assault|stabbing|bomb|explosion|missile|war|terror|hostage|abuse|rape|sexual assault|domestic violence|crash kills|deadly crash|fatal crash|school threat/.test(t);
+}
+function safetyLabel(headline){
+  return isSensitiveHarmHeadline(headline) ? 'Moral filter active: tragedy-sensitive headline' : '';
+}
+function makeSensitiveMathWarmup(subject, h, base){
+  const common = {
+    ...base,
+    safetyNote:'This headline may involve violence, death, injury, or trauma. The warmup avoids calculating weapons, casualties, injury rates, attack mechanics, or anything that turns harm into a numerical exercise.',
+    headline:h
+  };
+  if(subject==='algebra1'){
+    return {...common, skill:'identify variables and ethical constraints', relevance:'Algebra can model real events, but not every available number should become a classroom calculation. Students practice identifying variables while also deciding what data would be inappropriate to quantify.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Do <strong>not</strong> calculate rates of harm from this story. Instead, identify:<br>1. One variable a reporter might mention.<br>2. One variable that would be inappropriate for a warmup calculation.<br>3. One safer variable connected to classroom discussion, such as number of sources checked, minutes for a reflection routine, or number of support resources listed.`, answer:'A strong answer names a real variable, explains why harm-related quantities should not be used as practice numbers, and proposes a safer variable focused on evidence, support, or media literacy.'};
+  }
+  if(subject==='geometry'){
+    return {...common, skill:'interpret charts ethically', relevance:'Graphs can clarify public information, but visualizing tragedy can also sensationalize harm. Geometry and data-display skills include choosing what should and should not be graphed.', problem:`Headline: <strong>${esc(h)}</strong><br><br>A student suggests making a graph of harm from this story. Explain why that may be inappropriate for a warmup. Then name one safer chart connected to the headline, such as a timeline of official updates, a map of public services, or a bar graph of source types used in reporting.`, answer:'A strong answer rejects graphs that quantify harm for practice and proposes a safer display focused on information flow, services, source types, or response steps.'};
+  }
+  return {...common, skill:'interpret variables in a model ethically', relevance:'Algebra 2 models can be powerful, so students need to understand that model design includes ethical choices about what not to model.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Suppose someone proposes a model using this headline. Write two variables that would be ethical to model for classroom learning and one variable that should be avoided. Explain your choices.`, answer:'Ethical variables might involve number of verified sources, time between official updates, resources available, or response steps. Variables that quantify casualties, weapon performance, or attack mechanics should be avoided.'};
+}
+function makeSensitiveScienceWarmup(subject, h, base){
+  return {
+    ...base,
+    headline:h,
+    skill:'apply scientific thinking ethically',
+    safetyNote:'This headline may involve violence, death, injury, or trauma. The warmup avoids formulas about weapons, impacts, injuries, attack mechanics, or rates of harm.',
+    relevance:'Science skills should help students evaluate evidence and systems without turning tragedy into a physics or biology calculation.',
+    problem:`Headline: <strong>${esc(h)}</strong><br><br>This story is not appropriate for a calculation about motion, force, energy, injury, or weapons. Instead, answer these questions:<br>1. What scientific or technical claim would need careful evidence before repeating?<br>2. What information source would be more reliable than speculation?<br>3. What is one respectful way to connect the story to safety, systems, or evidence without calculating harm?`,
+    answer:'A strong answer avoids weapon or injury calculations, asks for verified evidence, prefers official or expert sources, and frames science around safety, systems, or responsible interpretation.'
+  };
+}
+function makeSensitiveHumanitiesWarmup(subject, h, base){
+  const common = {
+    ...base,
+    headline:h,
+    safetyNote:'This headline may involve violence, death, injury, or trauma. The warmup avoids sensationalizing harm and focuses on evidence, language, institutions, context, or support.'
+  };
+  if(subject==='english'){
+    return {...common, skill:'analyze tone and responsible language', relevance:'English skills help students notice when language informs, sensationalizes, blames, or protects dignity.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Identify one word or phrase that shapes tone. Then rewrite the headline in a way that is accurate, neutral, and respectful. Do not add graphic details.`, answer:'A strong answer identifies tone, avoids sensational language, and rewrites the headline with accuracy and dignity.'};
+  }
+  if(['civics','government'].includes(subject)){
+    return {...common, skill:'identify institutions and responsibilities', relevance:'Civics and government help students understand public responsibilities after a serious event without turning the event into spectacle.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one public institution that may have a responsibility here. Then identify one right, rule, or public value that should guide its response.`, answer:'A strong answer may name local government, courts, schools, emergency services, public health, or elected officials, and connect the response to rights, due process, safety, accountability, or public trust.'};
+  }
+  if(['psychology','health'].includes(subject)){
+    return {...common, skill:'analyze stress, support, and responsible response', relevance:'Psychology and health skills can focus on coping, stress, community support, and responsible information habits.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one possible stress response people might have after reading this story. Then name one healthy or responsible response that does not spread fear or speculation.`, answer:'A strong answer recognizes stress reactions such as anxiety, anger, confusion, or numbness, and suggests support, verified information, limiting graphic exposure, or seeking help when needed.'};
+  }
+  return {...common, skill:'use context and evidence responsibly', relevance:'History and social-studies skills help students place serious events in context without reducing people to data points.', problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one context question that would help readers understand this story responsibly. Then name one kind of evidence that could answer the question without using graphic or sensational details.`, answer:'A strong answer asks about background, institutions, policy, community impact, or historical context and names evidence such as official records, interviews, law, timelines, or reliable reporting.'};
+}
+
+function makeMathWarmup(subject, headlines, seed, n, theme, eventDesc){
+  const h=selectHeadline(headlines, seed+subject);
+  const cat=headlineCategory(h);
+  const noun=categoryNoun(cat);
+  const idx=hashString(seed+subject+h)%3;
+  const base={subject, course:SUBJECTS[subject].label, headline:h, eventDesc};
+  if(isSensitiveHarmHeadline(h)) return makeSensitiveMathWarmup(subject, h, base);
+
+  if(subject==='algebra1'){
+    const templates=[
+      ()=>{const total=n.c+n.b; return {...base, skill:'solve a one-step or two-step equation', relevance:`A ${noun} often gives totals after earlier and later updates. Algebra helps students recover an unknown starting amount from the final total.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified update tracker shows ${total} total mentions after an early group of reports and ${n.b} additional reports later. Let x be the number of early reports.<br><br>Solve: <strong>x + ${n.b} = ${total}</strong><br><br>Then interpret x in the context of the headline.`, answer:`x = ${total-n.b}. There were ${total-n.b} early reports before ${n.b} later reports were added.`};},
+      ()=>{const x1=1, y1=n.e, x2=5, y2=n.e+4*n.d; return {...base, skill:'interpret slope from a graph or table', relevance:`Many current-event stories describe rates of change. Slope turns that change into “how much per unit.”`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A classroom chart tracks an index related to the story.${tableHTML(['Day','Index'],[[x1,y1],[x2,y2]])}<br>Find the slope between the two points and explain what it means.`, answer:`Slope = (${y2} − ${y1}) ÷ (${x2} − ${x1}) = ${4*n.d} ÷ 4 = ${n.d}. The index changed by ${n.d} points per day.`};},
+      ()=>{const part=n.g, whole=n.g+n.k; return {...base, skill:'calculate and interpret a ratio', relevance:`Headlines often compare groups, places, or outcomes. Ratios help students read those comparisons without losing the relationship between the numbers.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>In a simplified class dataset, ${part} of ${whole} related updates focus on one part of the story.<br><br>1. Write the ratio of focused updates to total updates.<br>2. Convert the ratio to a percent rounded to the nearest whole percent.<br>3. Explain what the percent means.`, answer:`Ratio = ${part}:${whole}. Percent = ${part} ÷ ${whole} ≈ ${percent(part,whole)}%. About ${percent(part,whole)}% of the updates focus on that part of the story.`};}
+    ];
+    return templates[idx]();
+  }
+
+  if(subject==='geometry'){
+    const templates=[
+      ()=>{const rows=[['1',n.k],['2',n.k+n.d],['3',n.k+2*n.d],['4',n.k+3*n.d]]; return {...base, skill:'predict from a line of best fit', relevance:`When stories unfold over time, a simple trend line can help students make a cautious prediction from visible data.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>The table shows a simplified trend related to the story.${tableHTML(['Day','Count'],rows)}<br>1. Is the association positive or negative?<br>2. Predict the count on Day 6 if the pattern continues.<br>3. Is this a guaranteed value or a model-based prediction?`, answer:`The association is positive. Day 6 prediction = ${n.k+5*n.d}. It is a model-based prediction, not a guarantee.`};},
+      ()=>{const a1=n.a*(n.b+3), a2=(n.a+2)*(n.b+1); return {...base, skill:'compare areas', relevance:`News graphics, maps, screens, and displays often use area. Geometry helps students compare visual space accurately instead of relying on appearances.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Two rectangular infographics will display the story. Graphic A is ${n.a} cm by ${n.b+3} cm. Graphic B is ${n.a+2} cm by ${n.b+1} cm.<br><br>Calculate both areas. Which graphic has more display space, and by how much?`, answer:`Graphic A area = ${a1} cm². Graphic B area = ${a2} cm². ${a1>a2?'Graphic A':a2>a1?'Graphic B':'Both graphics'} ${a1===a2?'has the same display space.':'has more display space by '+Math.abs(a1-a2)+' cm².'}`};},
+      ()=>{const small=n.a+n.d, scale=2+(n.m%4), large=small*scale; return {...base, skill:'calculate and interpret proportions', relevance:`Proportions help students compare maps, models, images, and quantities that have been scaled for news communication.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A classroom model uses a scale where 1 grid unit represents ${scale} real units. A feature on the model measures ${small} grid units.<br><br>How many real units does the feature represent? Explain the proportion you used.`, answer:`${small} × ${scale} = ${large}. The feature represents ${large} real units because each model unit stands for ${scale} real units.`};}
+    ];
+    return templates[idx]();
+  }
+
+  const templates=[
+    ()=>{const c=n.a*n.a+n.b, x=n.a+2, val=x*x-2*n.a*x+c; return {...base, skill:'evaluate a function', relevance:`Functions help students test what a model predicts for a specific time, cost, score, or index connected to a news event.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified model for an index related to the story is <strong>f(x)=x² − ${2*n.a}x + ${c}</strong>, where x is days after the first report.<br><br>Evaluate <strong>f(${x})</strong> and interpret the output as an index value.`, answer:`f(${x}) = ${x}² − ${2*n.a}(${x}) + ${c} = ${val}. The model predicts an index value of ${val}.`};},
+    ()=>{const p=2+(n.a%4), q=5+(n.b%9), r=1+(n.d%5), x=n.g, target=p*(x+r)+q; return {...base, skill:'solve a multistep equation', relevance:`Multistep equations help students unpack formulas or models when a headline gives an outcome but not the input that produced it.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified model is <strong>y = ${p}(x + ${r}) + ${q}</strong>. If y = ${target}, solve for x.<br><br>Then explain what solving for x means in a model.`, answer:`${target} = ${p}(x + ${r}) + ${q}. Subtract ${q}: ${target-q} = ${p}(x + ${r}). Divide by ${p}: ${x+r} = x + ${r}. So x = ${x}. Solving finds the input that produces the given output.`};},
+    ()=>{const a= n.a+5, b=n.d+2, total=2*a+3*b; return {...base, skill:'solve a system of equations', relevance:`Systems help students compare two unknown quantities when a news story combines categories, costs, groups, or outcomes.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified report combines two categories, x and y. The model says:<br><strong>x + y = ${a+b}</strong><br><strong>2x + 3y = ${total}</strong><br><br>Solve the system and state what x and y could represent in the story.`, answer:`From x + y = ${a+b}, x = ${a+b} − y. Substitute: 2(${a+b} − y) + 3y = ${total}, so ${2*(a+b)} + y = ${total}. y = ${b}, and x = ${a}. x and y could represent two categories being compared in the story.`};}
+  ];
+  return templates[idx]();
+}
+
+function makeScienceWarmup(subject, headlines, seed, n, theme, eventDesc){
+  const h=selectHeadline(headlines, seed+subject);
+  const cat=headlineCategory(h);
+  const idx=hashString(seed+subject+h)%3;
+  const base={subject, course:SUBJECTS[subject].label, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc};
+  if(isSensitiveHarmHeadline(h)) return makeSensitiveScienceWarmup(subject, h, base);
+
+  if(subject==='lifeScience'){
+    const templates=[
+      ()=>{const start=40+n.f, births=12+n.a, deaths=5+n.d, migration=(n.b%2===0)?n.m:-n.m, end=start+births-deaths+migration; return {...base, formula:'Population change = births − deaths + migration', relevance:`Life science connects news to ecosystems, populations, disease spread, resources, and how living systems respond to change.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A small study population begins with ${start} organisms. During the season, there are ${births} births, ${deaths} deaths, and ${migration>0?migration+' organisms move in':Math.abs(migration)+' organisms move out'}.<br><br>Calculate the ending population and explain whether the population increased or decreased.`, answer:`Ending population = ${start} + ${births} − ${deaths} ${migration>=0?'+ '+migration:'− '+Math.abs(migration)} = ${end}. The population ${end>start?'increased':'decreased'} by ${Math.abs(end-start)} organisms.`};},
+      ()=>{const energy=1000+n.f, producer=Math.round(energy*.1), secondary=Math.round(producer*.1); return {...base, formula:'About 10% of energy transfers to the next trophic level', relevance:`Ecology helps students connect current events to food webs, habitats, and resource limits.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified food chain starts with ${energy} energy units in producers. About 10% transfers to primary consumers, and about 10% of that transfers to secondary consumers.<br><br>How many energy units reach each consumer level?`, answer:`Primary consumers receive about ${producer} units. Secondary consumers receive about ${secondary} units. Energy decreases sharply at higher trophic levels.`};},
+      ()=>{const total=n.k+n.g, adapted=n.g; return {...base, formula:'Percent = part ÷ whole × 100', relevance:`Adaptation and survival are easier to discuss when students can quantify how many organisms have a helpful trait.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>In a model population, ${adapted} out of ${total} organisms have a trait that may help them survive a changing condition.<br><br>What percent of the population has the trait? Round to the nearest whole percent.`, answer:`${adapted} ÷ ${total} × 100 ≈ ${percent(adapted,total)}%. About ${percent(adapted,total)}% of the population has the trait.`};}
+    ]; return templates[idx]();
+  }
+
+  if(subject==='biology'){
+    const templates=[
+      ()=>{const dom=3+(n.a%3), rec=2+(n.d%3), total=dom+rec; return {...base, formula:'Probability = favorable outcomes ÷ total outcomes', relevance:`Biology helps students evaluate living systems, inheritance, body systems, and evidence behind scientific claims.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>In a simplified genetics model, there are ${dom} dominant allele cards and ${rec} recessive allele cards. What is the probability of randomly selecting a recessive allele?<br><br>Give the answer as a fraction and percent.`, answer:`Probability = ${rec}/${total} = ${percent(rec,total)}%.`};},
+      ()=>{const control=n.k, experimental=n.k+n.d+n.m, diff=experimental-control; return {...base, formula:'Difference = experimental group − control group', relevance:`Biology news often depends on interpreting evidence from studies rather than accepting claims at face value.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A simplified experiment has a control group average of ${control} and an experimental group average of ${experimental}.<br><br>Find the difference. Does the experimental group show a higher or lower average? What would you still need to know before trusting the result?`, answer:`Difference = ${experimental} − ${control} = ${diff}. The experimental group is higher. Before trusting the result, we would need sample size, method, possible confounding variables, and whether the difference is meaningful.`};},
+      ()=>{const start=80+n.k, rate=5+(n.a%8), after=start-rate; return {...base, formula:'New level = starting level − change', relevance:`Feedback systems help explain how organisms maintain stability when conditions change.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A body-system model starts at level ${start}. A negative feedback response lowers the level by ${rate}.<br><br>What is the new level, and why is negative feedback useful in living systems?`, answer:`New level = ${start} − ${rate} = ${after}. Negative feedback helps bring a system back toward a stable range.`};}
+    ]; return templates[idx]();
+  }
+
+  if(subject==='physicalScience'){
+    const templates=[
+      ()=>{const distance=120+n.f, time=3+(n.a%4), speed=(distance/time).toFixed(1).replace(/\.0$/,''); return {...base, formula:'speed = distance ÷ time', relevance:`Physical science connects news to motion, energy, waves, matter, forces, and measurements.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A moving object, signal, vehicle, or weather system travels ${distance} kilometers in ${time} hours.<br><br>Calculate the average speed and explain the unit.`, answer:`speed = ${distance} ÷ ${time} = ${speed} km/h. The unit means kilometers traveled each hour.`};},
+      ()=>{const mass=20+n.b, volume=4+(n.a%8), density=(mass/volume).toFixed(1).replace(/\.0$/,''); return {...base, formula:'density = mass ÷ volume', relevance:`Density helps students compare materials and understand why objects sink, float, compress, or behave differently.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A sample material connected to a classroom model has a mass of ${mass} g and a volume of ${volume} cm³.<br><br>Calculate its density.`, answer:`density = ${mass} ÷ ${volume} = ${density} g/cm³.`};},
+      ()=>{const force=10+n.g, distance=2+(n.d%6), work=force*distance; return {...base, formula:'work = force × distance', relevance:`Energy transfer appears in transportation, weather, machines, sports, technology, and infrastructure stories.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A force of ${force} N moves an object ${distance} meters.<br><br>Calculate the work done.`, answer:`work = ${force} × ${distance} = ${work} joules.`};}
+    ]; return templates[idx]();
+  }
+
+  const templates=[
+    ()=>{const mass=4+(n.a%8), accel=2+(n.d%5), force=mass*accel; return {...base, formula:'F = ma', relevance:`Physics models force and motion behind transportation, technology, weather, space, and infrastructure events.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${mass} kg object accelerates at ${accel} m/s². Calculate the net force.`, answer:`F = ${mass} × ${accel} = ${force} N.`};},
+    ()=>{const m=10+(n.b%20), hgt=2+(n.d%9), pe=(m*9.8*hgt).toFixed(1).replace(/\.0$/,''); return {...base, formula:'gravitational potential energy = mgh', relevance:`Energy calculations help students understand storage, lifting, falling, power systems, and physical risk.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>A ${m} kg object is lifted ${hgt} meters. Use g = 9.8 m/s².<br><br>Calculate gravitational potential energy.`, answer:`PE = ${m} × 9.8 × ${hgt} = ${pe} J.`};},
+    ()=>{const m1=5+(n.a%8), v1=2+(n.d%7), m2=4+(n.m%8), v2=3+(n.g%6), p1=m1*v1, p2=m2*v2; return {...base, formula:'momentum = mass × velocity', relevance:`Momentum helps students compare moving objects in transportation, sports, engineering, and safety stories.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Object A has mass ${m1} kg and velocity ${v1} m/s. Object B has mass ${m2} kg and velocity ${v2} m/s.<br><br>Calculate both momenta. Which object has greater momentum?`, answer:`Object A momentum = ${p1} kg·m/s. Object B momentum = ${p2} kg·m/s. ${p1>p2?'Object A':p2>p1?'Object B':'Both objects'} ${p1===p2?'has the same momentum.':'has greater momentum.'}`};}
+  ]; return templates[idx]();
+}
+
+function makeHumanitiesWarmup(subject, headlines, seed, n, theme, eventDesc){
+  const h=selectHeadline(headlines, seed+subject);
+  const second=selectHeadline(headlines, seed+subject+'second');
+  const cat=headlineCategory(h);
+  const idx=hashString(seed+subject+h)%3;
+  const subjectLabel=SUBJECTS[subject].label;
+  const base={subject, course:subjectLabel, skill:pick(SKILLS[subject], seed+subject), headline:h, eventDesc};
+  if(isSensitiveHarmHeadline(h)) return makeSensitiveHumanitiesWarmup(subject, h, base);
+  const sourceA=`Officials say the story shows a need for quick action because the effects are already visible.`;
+  const sourceB=`Community members say the story is more complicated and that long-term causes should be studied before choosing a response.`;
+
+  if(subject==='english'){
+    const templates=[
+      ()=>({...base, skill:'identify claim and evidence', relevance:`Current events are built from claims, evidence, word choice, and source framing. English skills help students read a headline as an argument, not just information.`, problem:`Read this headline: <strong>${esc(h)}</strong><br><br>1. Write the main claim a reader might expect the article to make.<br>2. Name one kind of evidence the article would need.<br>3. Explain why that evidence would strengthen the claim.`, answer:`A strong answer states a clear claim and names relevant evidence such as data, expert comment, eyewitness accounts, official records, or historical context. The explanation should connect the evidence directly to the claim.`}),
+      ()=>({...base, skill:'analyze tone and word choice', relevance:`A headline can steer attention before the article begins. Tone analysis helps students notice how language shapes a reader’s first impression.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose two words from the headline. For each word, explain whether it makes the event sound urgent, positive, negative, uncertain, technical, or routine.<br><br>Then rewrite the headline in a more neutral tone.`, answer:`A strong answer identifies words that shape tone and explains their effect. The neutral rewrite should preserve the basic event while reducing loaded or dramatic wording.`}),
+      ()=>({...base, skill:'write a concise summary', relevance:`Summarizing current events requires separating the central action from extra detail, emotion, and speculation.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write a one-sentence summary using this frame:<br><strong>Someone/something did or experienced something because/after/while ______, which matters because ______.</strong><br><br>Then cross out any words that are opinion rather than fact.`, answer:`A strong summary identifies who or what the story is about, what happened, and why it matters. Opinion words should be removed unless they are clearly attributed to a source.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='worldHistory'){
+    const templates=[
+      ()=>({...base, skill:'compare historical patterns', relevance:`World History helps students connect current events to larger patterns such as migration, trade, technology, conflict, reform, and environmental change.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose one World History pattern that could help explain this event: trade, migration, conflict, technological change, environmental pressure, empire, revolution, or reform.<br><br>Explain one similarity to an older pattern and one important difference.`, answer:`A strong answer names a pattern, explains a real similarity, and avoids saying history simply “repeats.” The difference might involve scale, technology, law, geography, or the groups involved.`}),
+      ()=>({...base, skill:'identify cause and effect', relevance:`Historical thinking helps students separate immediate triggers from deeper causes and long-term effects.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Create a three-part chain:<br><strong>Long-term condition → immediate trigger → possible effect</strong><br><br>Fill in each part using cautious language.`, answer:`A strong answer distinguishes background conditions from the immediate event and predicts an effect without claiming certainty. Words like “may,” “could,” and “likely” are appropriate.`}),
+      ()=>({...base, skill:'connect geography to events', relevance:`Geography shapes trade, conflict, migration, disease, climate risk, and access to resources.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one geographic factor that could matter in this story, such as location, climate, borders, resources, distance, waterways, or population density.<br><br>Explain how that factor could shape the event.`, answer:`A strong answer names a geographic factor and explains its effect on choices, risks, movement, resources, or political relationships.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='civics'){
+    const templates=[
+      ()=>({...base, skill:'identify civic institutions', relevance:`Civics helps students see how public problems move through institutions, rights, responsibilities, and community decisions.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>1. Identify one civic institution or group that might be involved.<br>2. What public choice or responsibility does this story raise?<br>3. Write one fact-based question a citizen should ask before taking a position.`, answer:`A strong answer identifies a relevant institution such as local government, courts, agencies, voters, schools, the press, or community groups. The citizen question should ask for evidence, authority, cost, rights, fairness, or impact.`}),
+      ()=>({...base, skill:'distinguish fact from opinion', relevance:`Civic participation depends on telling verified information apart from interpretation, persuasion, or reaction.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one likely factual statement about the story and one likely opinion someone might express about it.<br><br>Then explain how a reader could verify the factual statement.`, answer:`A fact can be checked with evidence. An opinion expresses judgment or preference. Verification might require official data, multiple reliable reports, public records, or direct quotations.`}),
+      ()=>({...base, skill:'analyze policy impact', relevance:`Policy choices affect different groups in different ways. Civics warmups should push students to ask who benefits, who pays, and who has voice.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one possible policy response. Then identify one group that might benefit, one group that might face a cost or burden, and one question decision-makers should ask before acting.`, answer:`A strong answer identifies a plausible response, considers more than one affected group, and asks a decision-making question about evidence, fairness, cost, rights, authority, or unintended effects.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='psychology'){
+    const templates=[
+      ()=>({...base, skill:'identify cognitive bias', relevance:`Psychology helps students understand how people react to uncertainty, risk, stress, incentives, and information.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Choose one concept: confirmation bias, availability heuristic, conformity, stress response, or attribution error.<br><br>Explain how the concept could shape someone’s reaction to the headline.`, answer:`A strong answer correctly applies the concept. For example, availability heuristic means people may judge risk based on what is vivid or recent rather than what is statistically likely.`}),
+      ()=>({...base, skill:'distinguish correlation from causation', relevance:`News often reports patterns between variables. Psychology helps students avoid assuming one thing caused another without evidence.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Identify two variables that might be related in this story. Then write one sentence explaining why correlation alone would not prove causation.`, answer:`A strong answer names two measurable variables and explains that a third factor, reverse direction, or weak evidence could explain the relationship.`}),
+      ()=>({...base, skill:'analyze stress and decision-making', relevance:`Stress can narrow attention, increase urgency, and change how people process information.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>How might stress affect how a person reads or responds to this story? Name one possible helpful response and one possible harmful response.`, answer:`A helpful response might be seeking reliable information, making a plan, or asking for support. A harmful response might be panic-sharing, avoidance, impulsive decisions, or blaming without evidence.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='usHistory'){
+    const templates=[
+      ()=>({...base, skill:'connect current events to historical context', relevance:`US History places today’s news in a longer story about power, rights, reform, conflict, economic change, and federal-state relationships.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Connect this headline to one US History topic: Reconstruction, Progressive Era, New Deal, Civil Rights, Cold War, immigration, industrialization, environmental policy, or federalism.<br><br>Write one sentence of context, one comparison, and one key difference.`, answer:`A strong answer uses historical context without forcing an exact match. The difference might involve technology, legal rights, economic scale, federal authority, or the groups involved.`}),
+      ()=>({...base, skill:'identify continuity and change', relevance:`Historical thinking helps students see what has changed and what has stayed structurally similar over time.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one thing about this issue that seems new and one thing that connects to an older American debate or problem.`, answer:`A strong answer identifies both change and continuity, such as new technology with older debates over labor, rights, safety, migration, regulation, or public spending.`}),
+      ()=>({...base, skill:'use evidence to support a historical claim', relevance:`Historical claims need evidence. Current events can help students practice deciding what evidence would actually prove a claim.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write a historical claim this story could connect to. Then list two pieces of evidence a historian would need to support that claim.`, answer:`A strong answer makes a debatable claim and names evidence such as laws, speeches, statistics, letters, court cases, maps, photographs, newspapers, or oral histories.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='health'){
+    const templates=[
+      ()=>({...base, skill:'identify risk and protective factors', relevance:`Health skills connect current events to risk, prevention, personal choices, community conditions, and how claims should be evaluated.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Identify one health factor connected to this story. Then name one risk factor and one protective factor related to the issue.`, answer:`A strong answer names a specific health factor, a condition or behavior that could increase harm, and a factor that could reduce harm.`}),
+      ()=>({...base, skill:'evaluate health claims', relevance:`Health misinformation can spread quickly when a story feels urgent. Students need to ask what evidence supports a claim before acting.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one health claim someone might make after reading this headline. Then write two questions that would help evaluate whether the claim is trustworthy.`, answer:`Good questions ask who made the claim, what evidence supports it, whether data are current, who is affected, what the actual risk is, and whether reliable health agencies or experts agree.`}),
+      ()=>({...base, skill:'analyze prevention and decision-making', relevance:`Prevention asks students to move from information to practical action without exaggerating risk.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Name one individual action and one community action that could reduce risk connected to this story. Then explain which action would probably have broader impact.`, answer:`A strong answer distinguishes personal behavior from community-level prevention and explains impact using access, scale, cost, or who is protected.`})
+    ]; return templates[idx]();
+  }
+
+  if(subject==='government'){
+    const templates=[
+      ()=>({...base, skill:'identify branches and powers', relevance:`Government skills help students identify authority, branches, checks and balances, federalism, and constitutional principles behind public decisions.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Which branch, level, or part of government might have authority here? What power would it use?`, answer:`A strong answer identifies a relevant actor and power, such as legislation, enforcement, court review, agency regulation, local ordinances, spending, or emergency authority.`}),
+      ()=>({...base, skill:'analyze checks and balances', relevance:`Public authority is limited by other institutions, rights, budgets, elections, and legal review.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Read two responses:<br><em>Response A:</em> ${sourceA}<br><em>Response B:</em> ${sourceB}<br><br>Name one check, limit, or competing interest that could affect government action.`, answer:`Possible checks or limits include courts, legislatures, voters, budgets, federalism, due process, individual rights, agency rules, or public opposition.`}),
+      ()=>({...base, skill:'connect federalism to policy', relevance:`Many public problems involve tension between national, state, and local authority.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Would this issue most likely involve federal, state, local, or shared authority? Explain your choice in two sentences.`, answer:`A strong answer explains which level has authority and why. Shared authority is common when funding, regulation, enforcement, and local implementation overlap.`})
+    ]; return templates[idx]();
+  }
+
+  return {...base, relevance:`This warmup connects current events to disciplinary thinking.`, problem:`Headline: <strong>${esc(h)}</strong><br><br>Write one discipline-specific question this story raises, then answer it using evidence from the headline.`, answer:`A strong answer uses the subject lens and stays grounded in the headline.`};
+}
+
+function subjectsForMode(){
+  const mode=document.getElementById('subjectMode').value;
+  return SUBJECT_GROUPS[mode] || [mode];
+}
+function makeWarmups(headlines){
+  const date=document.getElementById('dateSeed').value || new Date().toISOString().slice(0,10);
+  const mode=document.getElementById('subjectMode').value;
+  const seed=headlines.join('|') + date + mode;
+  const theme=themeFrom(headlines);
+  const eventDesc=describeEvent(headlines, theme);
+  return subjectsForMode().map((subject, index)=>{
+    const localSeed=seed+subject+index;
+    const n=seededNums(localSeed);
+    if(['algebra1','geometry','algebra2'].includes(subject)) return makeMathWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    if(['lifeScience','biology','physicalScience','physics'].includes(subject)) return makeScienceWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+    return makeHumanitiesWarmup(subject, headlines, localSeed, n, theme, eventDesc);
+  });
+}
+
+function renderHeadlines(headlines){
+  const ul=document.getElementById('headlineList');
+  ul.innerHTML = headlines.length ? headlines.slice(0,8).map(h=>`<li>${escapeHTML(h)}</li>`).join('') : '<li>No headlines loaded yet.</li>';
+}
+function renderWarmups(headlines){
+  renderHeadlines(headlines);
+  const warmups=makeWarmups(headlines);
+  const grid=document.getElementById('warmups');
+  grid.innerHTML=warmups.map((w,i)=>`
+    <article class="warmup ${SUBJECTS[w.subject]?.cls || ''}">
+      <div class="band"></div>
+      <div class="warmup-body">
+        <h2 class="course">${w.course}</h2>
+        <span class="tag">${escapeHTML(w.skill)}</span>
+        <div class="text-block"><div class="mini-title">News anchor</div>${escapeHTML(w.eventDesc)}</div>
+        <div class="text-block"><div class="mini-title">Skill relevance</div>${escapeHTML(w.relevance)}</div>
+        ${w.safetyNote ? `<div class="safety-note"><div class="mini-title">Moral filter</div>${escapeHTML(w.safetyNote)}</div>` : ''}
+        ${w.formula ? `<div class="formula"><div class="mini-title">Formula</div>${w.formula}</div>` : ''}
+        <div class="problem"><div class="mini-title">Warmup problem</div>${w.problem}</div>
+        <button onclick="toggleAnswer(${i})" aria-controls="answer-${i}">Show answer</button>
+        <div id="answer-${i}" class="answer"><strong>Answer:</strong> ${w.answer}</div>
+      </div>
+    </article>`).join('');
+  grid.style.gridTemplateColumns = warmups.length===1 ? 'minmax(280px, 760px)' : '';
+}
+function toggleAnswer(i){const a=document.getElementById(`answer-${i}`); a.style.display = a.style.display==='block'?'none':'block';}
+function escapeHTML(str){return String(str).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c]));}
+function readManual(){return document.getElementById('manualHeadlines').value.split(/\n|\|/).map(s=>s.trim()).filter(Boolean);}
+async function fetchFeed(url){
+  const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxied, {cache:'no-store'});
+  if(!res.ok) throw new Error('Feed fetch failed');
+  const xml = await res.text();
+  const doc = new DOMParser().parseFromString(xml,'text/xml');
+  return [...doc.querySelectorAll('item title, entry title')].map(x=>x.textContent.trim()).filter(Boolean);
+}
+async function fetchFeeds(){
+  const mode=document.getElementById('sourceMode').value;
+  const status=document.getElementById('status');
+  status.textContent='Fetching public feeds…';
+  const feeds=FEEDS[mode] || FEEDS.mixed;
+  const all=[];
+  for(const f of feeds){
+    try{ all.push(...await fetchFeed(f)); }catch(e){ console.warn('Feed failed', f, e); }
+  }
+  const unique=[...new Set(all)].slice(0,8);
+  if(unique.length){
+    document.getElementById('manualHeadlines').value=unique.join('\n');
+    renderWarmups(unique);
+    status.textContent=`Loaded ${unique.length} headlines. Warmups generated.`;
+  } else {
+    status.textContent='Feed access failed. Paste headlines manually or use sample headlines.';
+  }
+}
+function init(){
+  document.getElementById('dateSeed').value=new Date().toISOString().slice(0,10);
+  document.getElementById('fetchFeeds').addEventListener('click', fetchFeeds);
+  document.getElementById('generate').addEventListener('click', ()=>{
+    const h=readManual();
+    if(h.length){renderWarmups(h); document.getElementById('status').textContent='Warmups generated from pasted headlines.';}
+    else document.getElementById('status').textContent='Paste headlines first, fetch feeds, or use sample headlines.';
+  });
+  document.getElementById('subjectMode').addEventListener('change', ()=>{
+    const h=readManual();
+    renderWarmups(h.length?h:SAMPLE_HEADLINES);
+    document.getElementById('status').textContent='Warmup type changed.';
+  });
+  document.getElementById('sample').addEventListener('click', ()=>{document.getElementById('manualHeadlines').value=SAMPLE_HEADLINES.join('\n'); renderWarmups(SAMPLE_HEADLINES); document.getElementById('status').textContent='Sample warmups generated.';});
+  document.getElementById('print').addEventListener('click', ()=>window.print());
+  document.getElementById('showAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='block'));
+  document.getElementById('hideAll').addEventListener('click', ()=>document.querySelectorAll('.answer').forEach(a=>a.style.display='none'));
+  const params=new URLSearchParams(location.search);
+  const passed=params.get('headlines');
+  const subject=params.get('subject');
+  if(subject && document.querySelector(`#subjectMode option[value="${CSS.escape(subject)}"]`)) document.getElementById('subjectMode').value=subject;
+  if(passed){
+    const heads=passed.split('|').map(decodeURIComponent).map(s=>s.trim()).filter(Boolean);
+    document.getElementById('manualHeadlines').value=heads.join('\n');
+    renderWarmups(heads);
+    document.getElementById('status').textContent='Agent-mode headlines loaded from URL.';
+  } else {
+    renderWarmups(SAMPLE_HEADLINES);
+  }
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
