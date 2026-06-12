@@ -647,6 +647,7 @@ function questionScenarioFamily(w){
 }
 
 function headlineSupportsQuestionScenario(w){
+  if(blocksScienceHealthWarmup(w.subject, w.headline||'')) return false;
   const p=classifyHeadlineConcepts(w.headline||'');
   const fam=questionScenarioFamily(w);
 
@@ -700,6 +701,7 @@ function headlineSupportsQuestionScenario(w){
 }
 
 function formulaFitsHeadline(w){
+  if(blocksScienceHealthWarmup(w.subject, w.headline||'')) return false;
   if(!headlineSupportsQuestionScenario(w)) return false;
   if(!w.formula) return true;
   if(w.safetyNote) return true;
@@ -719,6 +721,7 @@ function makeRelevanceRedirect(w){
   return base;
 }
 function applyRelevanceCheck(w){
+  if(blocksScienceHealthWarmup(w.subject, w.headline||'')) return moralRiskNoWarmup(w.subject, w.headline||'');
   if(isSensitiveHarmHeadline(w.headline||'') && ['physicalScience','physics'].includes(w.subject) && hasMilitaryScienceEthicsHook(w.headline||'') && /science, technology, and ethics|scientific thinking ethically/.test((w.skill||'').toLowerCase())){
     return {...w, relevanceCheck:'Passed relevance check: the headline has a clear science/technology ethics hook, and the warmup avoids calculations about harm.'};
   }
@@ -797,6 +800,51 @@ function hasFlightMotionHook(headline){
 function hasSportsMotionHook(headline){
   return /soccer|football|fifa|world cup|goalie|goalkeeper|player|players|athlete|athletes|match|game|tournament|shot|kick|ball|race|running|sprint|baseball|basketball|tennis|olympic|sports/.test((headline||'').toLowerCase());
 }
+function scienceHealthMoralRiskTopic(headline){
+  const t=(headline||'').toLowerCase();
+  const risks=[];
+  if(/\b(shooting|shooter|gun|guns|gunfire|bullet|bullets|firearm|firearms|missile|missiles|rocket fire|airstrike|drone strike|bomb|bombing|explosion|blast|attack|attacks|assault|stabbing|killed|dead|deaths?|death toll|fatal|wounded|injured|injuries|casualties|victims?|massacre|homicide|murder)\b/.test(t)){
+    risks.push('violence-weapons-injury-death');
+  }
+  if(/\b(trans|transgender|gender identity|gay|lgbtq|lgbtqia|queer|immigrant|immigrants|immigration|migrant|migrants|refugee|refugees|race|racial|racist|racism|ethnicity|ethnic|disability|disabled)\b/.test(t)){
+    risks.push('identity-protected-status');
+  }
+  if(/\b(abortion|pregnancy|pregnant|miscarriage|stillbirth|infant death|infant mortality|maternal death|maternal mortality|fertility|rape|sexual assault|sexual violence|sex trafficking|sexual exploitation|sexual abuse)\b/.test(t)){
+    risks.push('reproductive-sexual-medical-trauma');
+  }
+  return risks;
+}
+
+function blocksScienceHealthWarmup(subject, headline){
+  if(!['health','lifeScience','biology','physicalScience','physics'].includes(subject)) return false;
+  const risks=scienceHealthMoralRiskTopic(headline);
+  if(!risks.length) return false;
+  const t=(headline||'').toLowerCase();
+  const animalMigration=/\b(animal|animals|bird|birds|fish|whale|whales|butterfly|butterflies|monarch|salmon|wildlife|species)\b.*\bmigration\b|\bmigration\b.*\b(animal|animals|bird|birds|fish|whale|whales|butterfly|butterflies|monarch|salmon|wildlife|species)\b/.test(t);
+  if(animalMigration && ['lifeScience','biology'].includes(subject) && risks.length===1 && risks[0]==='identity-protected-status'){
+    return false;
+  }
+  return true;
+}
+
+function moralRiskNoWarmup(subject, headline){
+  const subjectLabel = SUBJECTS[subject]?.label || 'this subject';
+  const risks=scienceHealthMoralRiskTopic(headline);
+  const riskLabel = risks.length ? risks.join(', ') : 'sensitive topic';
+  return {
+    subject,
+    course: subjectLabel,
+    skill:'no relevant headline found',
+    headline,
+    eventDesc:`This headline was blocked for ${subjectLabel} because it contains a sensitive topic that could produce an inappropriate science or health warmup.`,
+    formula:'',
+    relevance:'The app blocks science and health warmups when headline topics could invite unethical calculations, biological essentialism, harm modeling, or inappropriate medical/reproductive framing.',
+    relevanceCheck:'Blocked by moral-risk topic filter before warmup generation.',
+    problem:`<strong>No ${esc(subjectLabel)} warmup was generated from this headline.</strong><br><br>Headline: <strong>${esc(headline)}</strong><br><br>The headline contains a sensitive topic category (${esc(riskLabel)}). The app will not turn this topic into a science or health calculation, model, genetics question, reproduction/mortality prompt, force/velocity problem, or health-risk activity.<br><br>Teacher action: choose a different headline for this subject, use a non-science evidence/framing task, or paste a safer science/health headline.`,
+    answer:'No answer key is needed because the app intentionally blocked this headline for science and health warmups.'
+  };
+}
+
 function hasMetaphoricalBodyLanguage(headline){
   const t=(headline||'').toLowerCase();
   return /heart of|heartbeat of|backbone of|nerve center of|brain trust|political body|body politic|arms of government|leg of a trip|head of state|face of/.test(t);
@@ -976,6 +1024,7 @@ function templateConceptFamily(subject, skill, formula=''){
 }
 
 function conceptProfileFitsTemplate(subject, headline, skill, formula=''){
+  if(blocksScienceHealthWarmup(subject, headline)) return false;
   const p=classifyHeadlineConcepts(headline);
   const family=templateConceptFamily(subject, skill, formula);
   const t=(headline||'').toLowerCase();
@@ -1097,6 +1146,7 @@ function isActuallyRelevant(w){
   const subject=w.subject;
   const h=w.headline||'';
   if(!h) return false;
+  if(blocksScienceHealthWarmup(subject, h)) return false;
 
   const p=classifyHeadlineConcepts(h);
   if(p.financeOnlyScienceBrand && ['physicalScience','physics','lifeScience','biology'].includes(subject)) return false;
@@ -1158,6 +1208,7 @@ function makeNoRelevantHeadlineCard(subject, headlines){
   };
 }
 function subjectStorylineScore(subject, headline){
+  if(blocksScienceHealthWarmup(subject, headline)) return -100;
   const p=classifyHeadlineConcepts(headline);
   if(p.financeOnlyScienceBrand && ['physicalScience','physics','lifeScience','biology'].includes(subject)) return -30;
   let score=0;
@@ -1258,6 +1309,11 @@ function getTemplateCount(subject){
 }
 
 function generateRelevantWarmup(subject, headlines, seed, theme){
+  if(['health','lifeScience','biology','physicalScience','physics'].includes(subject)){
+    const clean=headlines.filter(h=>!blocksScienceHealthWarmup(subject, h));
+    if(!clean.length && headlines.length) return moralRiskNoWarmup(subject, headlines[0]);
+    headlines=clean;
+  }
   const allHeadlines=rotatedHeadlines(headlines, seed+subject+'|headlines');
   const candidates=sortHeadlinesForSubject(subject, allHeadlines, seed+'|headlinePool');
   const templateCount=getTemplateCount(subject);
